@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Choghadiya Wheel — live active slot, Vaar Vela, Kaal Vela, Kaal Ratri</title>
+<meta name="description" content="A choghadiya wheel that uses your device clock to show the current active slot, with Vaar Vela, Kaal Vela, Kaal Ratri, Rahu Kaal, Yamaganda and Gulika. Calculated in your browser, works offline.">
+<style>
+:root{--bg:#f7f5f0;--fg:#1c1917;--muted:#6b6459;--card:#ffffff;--line:#e4ded3;--accent:#b45309;--warn:#b91c1c;--chip:#fef2f2;
+--best:#15803d;--good:#22a355;--neutral:#e0a100;--bad:#dc4a3d;--night:rgba(15,23,42,.30);--ring:#efe9de}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1115;--fg:#ece8e1;--muted:#a39d93;--card:#181b21;--line:#2a2f38;--accent:#f59e0b;--warn:#f87171;--chip:#3a1a1a;--ring:#1f232b}}
+:root[data-theme=dark]{--bg:#0f1115;--fg:#ece8e1;--muted:#a39d93;--card:#181b21;--line:#2a2f38;--accent:#f59e0b;--warn:#f87171;--chip:#3a1a1a;--ring:#1f232b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+main{max-width:980px;margin:0 auto;padding:12px 14px 40px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px}
+h1{font-size:1.25rem;margin:0}
+h2{font-size:1.05rem;margin:0 0 8px}
+.badge{font-size:.72rem;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}
+.badge.hic{border-color:#15803d;color:#15803d}
+button,input[type=date]{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 11px;min-height:38px}
+button{cursor:pointer}button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.bar input[type=date]{flex:1 1 150px;min-width:0}
+.loc{font-size:.85rem;color:var(--muted);margin:2px 0 8px}
+.loc b{color:var(--fg);font-weight:600}
+.layout{display:grid;gap:14px}
+@media (min-width:860px){.layout{grid-template-columns:minmax(0,560px) minmax(0,1fr);align-items:start}}
+.wheelwrap{position:relative;width:100%;max-width:560px;margin:0 auto}
+#wheel{display:block;width:100%;height:auto;touch-action:manipulation}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+/* centre card: drawn into the canvas (HTML-in-Canvas) or floated over it (fallback) */
+#centre{box-sizing:border-box;text-align:center;color:var(--fg);background:var(--card);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;line-height:1.2}
+#centre .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#centre .n{font-size:22px;font-weight:700;margin:2px 0}
+#centre .q{font-size:11px;font-weight:600}
+#centre .t{font-size:11px;color:var(--muted);margin-top:2px}
+#centre .w{font-size:10px;font-weight:700;color:var(--warn);margin-top:3px}
+.wheelwrap.overlay #centre{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.lbl{display:block;width:max-content;text-align:center;font:600 12px/1.1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.lbl small{display:block;font-size:9px;font-weight:700;opacity:.95}
+.qbest{color:var(--best)}.qgood{color:var(--good)}.qneutral{color:var(--neutral)}.qbad{color:var(--bad)}
+#active .name{font-size:1.6rem;font-weight:700;line-height:1.1}
+#active .row{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;margin:4px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{font-size:.8rem;padding:3px 9px;border-radius:999px;background:var(--chip);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.chip.ok{background:transparent;color:var(--best);border-color:color-mix(in srgb,var(--best) 40%,transparent)}
+.note{font-size:.85rem;color:var(--muted);margin-top:6px}
+#clean{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+tr.sec td{background:var(--ring);font-weight:600;font-size:.8rem;color:var(--muted)}
+tr.cur td{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+td.ov{color:var(--warn);font-size:.8rem}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem;color:var(--muted);margin:8px 0 0}
+footer{margin-top:22px;font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+footer p{margin:6px 0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.err{color:var(--warn)}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Choghadiya Wheel</h1>
+  <div class="bar" style="margin:0">
+    <span id="mode" class="badge" title="Rendering mode">detecting…</span>
+    <button id="theme" type="button" aria-label="Switch light or dark theme">◐ Theme</button>
+  </div>
+</header>
+
+<div class="bar" role="group" aria-label="Choose date">
+  <button id="prev" type="button" aria-label="Previous day">◀</button>
+  <input id="date" type="date" aria-label="Date">
+  <button id="next" type="button" aria-label="Next day">▶</button>
+  <button id="today" type="button" class="primary">Today</button>
+</div>
+<div class="loc"><span id="locText"></span> · <button id="geo" type="button" style="min-height:30px;padding:3px 9px;font-size:.82rem">Use my location</button> <button id="pipli" type="button" style="min-height:30px;padding:3px 9px;font-size:.82rem;display:none">Back to Pipli</button>
+  <div id="geoMsg" class="note" role="status"></div></div>
+
+<div class="layout">
+  <div>
+    <div class="wheelwrap" id="wrap">
+      <canvas id="wheel" width="560" height="560" role="img" aria-label="Choghadiya wheel"></canvas>
+    </div>
+    <p id="wheelCap" class="note" style="text-align:center;margin:4px 0 0"></p>
+    <div class="legend" aria-hidden="true">
+      <span><i class="dot" style="background:var(--best)"></i>Amrit (best)</span>
+      <span><i class="dot" style="background:var(--good)"></i>Shubh, Labh (good)</span>
+      <span><i class="dot" style="background:var(--neutral)"></i>Chal (neutral)</span>
+      <span><i class="dot" style="background:var(--bad)"></i>Udveg, Kaal, Rog (avoid)</span>
+      <span>Darker = night · red inner arc = Vela / Kaal Ratri / Rahu etc.</span>
+    </div>
+  </div>
+  <div>
+    <section id="active" class="card" aria-live="polite"></section>
+  </div>
+</div>
+
+<section class="card" style="margin-top:14px">
+  <h2 id="tableTitle">All 16 slots</h2>
+  <div style="overflow-x:auto"><table id="tbl"><thead><tr><th>#</th><th>Choghadiya</th><th>Start</th><th>End</th><th>Overlays</th></tr></thead><tbody></tbody></table></div>
+  <p class="note">Abbreviations on the wheel: VV Vaar Vela · KV Kaal Vela · KR Kaal Ratri · RK Rahu Kaal · YG Yamaganda · GK Gulika. A <b>clean slot</b> is Amrit, Shubh or Labh with none of these overlays (at least 20 minutes). Chal is neutral and not counted as clean.</p>
+</section>
+
+<footer>
+  <p><b>For reference only; calculated, not scraped.</b> Choghadiya is a traditional timing guide, not advice. Times can differ by a minute or two from printed panchangs because of rounding, location and horizon.</p>
+  <p><b>Method.</b> Sunrise and sunset are calculated in your browser for the apparent upper limb of the Sun with standard refraction (the Drik Panchang convention), using the NOAA/Meeus solar formulas. Day (sunrise→sunset) and night (sunset→next sunrise) are each split into 8 equal choghadiyas, named by the weekday lord in the hora order Sun, Venus, Mercury, Moon, Saturn, Jupiter, Mars → Udveg, Chal, Labh, Amrit, Kaal, Shubh, Rog. Vaar Vela, Kaal Vela (day eighths), Kaal Ratri (night eighths; two on Saturday), Rahu Kaal, Yamaganda and Gulika follow the same eighths. A Vedic day runs sunrise to sunrise, so the hours before sunrise belong to the previous day’s night. Ported from the Swiss-Ephemeris panchang engine and checked against it and Drik Panchang (within 1 minute).</p>
+  <p>Default place: Pipli, Kurukshetra (29.9775 N, 76.8928 E, IST). “Use my location” reads your position once in this browser; it is never stored or sent anywhere. The page works offline.</p>
+  <p>Created: 14 November 2026 · <a href="https://github.com/anandvip/choghadiya-wheel">Source on GitHub</a></p>
+</footer>
+</main>
+<script>
+// ===== ENGINE START (ported from jyotish/panchang.py; keep in sync) =====
+var CW = (function () {
+  var RAD = Math.PI / 180;
+  // Weekday 0=Sunday..6=Saturday. Planet lords in choghadiya/hora order.
+  var LORD_SEQ = ['Sun', 'Venus', 'Mercury', 'Moon', 'Saturn', 'Jupiter', 'Mars'];
+  var WEEK_LORD = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
+  var CHOG_NAME = { Sun: 'Udveg', Venus: 'Chal', Mercury: 'Labh', Moon: 'Amrit', Saturn: 'Kaal', Jupiter: 'Shubh', Mars: 'Rog' };
+  var CHOG_QUAL = { Udveg: 'bad', Chal: 'neutral', Labh: 'good', Amrit: 'best', Kaal: 'bad', Shubh: 'good', Rog: 'bad' };
+  var GOOD_CHOG = ['Amrit', 'Shubh', 'Labh'];
+  // 1-based eighth-of-day segment for weekday 0=Sun..6=Sat
+  var RAHU_SEG = [8, 2, 7, 5, 6, 4, 3];
+  var YAMA_SEG = [5, 4, 3, 2, 1, 7, 6];
+  var GULI_SEG = [7, 6, 5, 4, 3, 2, 1];
+  // Vaar Vela, Kaal Vela (day eighths) and Kaal Ratri (night eighths). Saturday has two.
+  var VAAR_VELA_SEG = [[4], [7], [2], [5], [8], [3], [6]];
+  var KAAL_VELA_SEG = [[5], [2], [6], [3], [7], [4], [1, 8]];
+  var KAAL_RATRI_SEG = [[6], [4], [2], [7], [5], [3], [1, 8]];
+  var WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var VAAR = ['Ravivar', 'Somvar', 'Mangalvar', 'Budhvar', 'Guruvar', 'Shukravar', 'Shanivar'];
+
+  // ---- Sun position (NOAA / Meeus low-precision, ~0.01 deg) ----
+  function sunPos(jd) {
+    var T = (jd - 2451545.0) / 36525;
+    var L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360;
+    var M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+    var e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+    var C = Math.sin(M * RAD) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
+            Math.sin(2 * M * RAD) * (0.019993 - 0.000101 * T) + Math.sin(3 * M * RAD) * 0.000289;
+    var trueLong = L0 + C, trueAnom = M + C;
+    var R = (1.000001018 * (1 - e * e)) / (1 + e * Math.cos(trueAnom * RAD));
+    var omega = 125.04 - 1934.136 * T;
+    var lambda = trueLong - 0.00569 - 0.00478 * Math.sin(omega * RAD);
+    var eps0 = 23 + (26 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) / 60;
+    var eps = eps0 + 0.00256 * Math.cos(omega * RAD);
+    var decl = Math.asin(Math.sin(eps * RAD) * Math.sin(lambda * RAD)) / RAD;
+    var y = Math.tan(eps / 2 * RAD); y *= y;
+    var eot = 4 / RAD * (y * Math.sin(2 * L0 * RAD) - 2 * e * Math.sin(M * RAD) +
+      4 * e * y * Math.sin(M * RAD) * Math.cos(2 * L0 * RAD) - 0.5 * y * y * Math.sin(4 * L0 * RAD) -
+      1.25 * e * e * Math.sin(2 * M * RAD)); // minutes
+    return { decl: decl, eot: eot, R: R };
+  }
+  // Apparent upper limb with standard refraction (like Swiss Ephemeris rise_trans defaults / Drik).
+  var REFRACTION = 34.5 / 60; // deg at the horizon, 1013.25 hPa / 15 C
+  function sunEvent(utcMidnightMs, lat, lon, rise) {
+    // utcMidnightMs: instant of local midnight. Returns ms (UTC epoch) or null (polar day/night).
+    var t = utcMidnightMs + (rise ? 6 : 18) * 3600000;
+    for (var i = 0; i < 6; i++) {
+      var jd = t / 86400000 + 2440587.5;
+      var s = sunPos(jd);
+      var sd = 0.266563 / s.R; // semidiameter, deg
+      var h0 = -(REFRACTION + sd);
+      var cosH = (Math.sin(h0 * RAD) - Math.sin(lat * RAD) * Math.sin(s.decl * RAD)) /
+                 (Math.cos(lat * RAD) * Math.cos(s.decl * RAD));
+      if (cosH > 1 || cosH < -1) return null;
+      var H = Math.acos(cosH) / RAD; // degrees
+      // solar noon (UTC minutes from the UTC date of t)
+      var dayStart = Math.floor(t / 86400000) * 86400000;
+      var noonMin = 720 - 4 * lon - s.eot;
+      var evMin = noonMin + (rise ? -4 * H : 4 * H);
+      var nt = dayStart + evMin * 60000;
+      // keep the event within 12 h of the guess (date-line safety)
+      while (nt - t > 43200000) nt -= 86400000;
+      while (t - nt > 43200000) nt += 86400000;
+      if (Math.abs(nt - t) < 500) { t = nt; break; }
+      t = nt;
+    }
+    return t;
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function ymd(y, m, d) { var x = new Date(Date.UTC(y, m - 1, d)); return { y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate() }; }
+  function addDays(o, k) { return ymd(o.y, o.m, o.d + k); }
+  function iso(o) { return o.y + '-' + pad(o.m) + '-' + pad(o.d); }
+  function parseISO(s) { var p = s.split('-').map(Number); return { y: p[0], m: p[1], d: p[2] }; }
+  // local midnight of a civil date for a location whose UTC offset (minutes) is given by tzFn(dateObj)
+  function midnight(o, tzMin) { return Date.UTC(o.y, o.m - 1, o.d) - tzMin * 60000; }
+
+  // loc = {lat, lon, tz: function(dateObj) -> offset minutes east of UTC}
+  function sunTimes(o, loc) {
+    var m0 = midnight(o, loc.tz(o));
+    return { sunrise: sunEvent(m0, loc.lat, loc.lon, true), sunset: sunEvent(m0, loc.lat, loc.lon, false) };
+  }
+
+  function computeDay(o, loc) {
+    var a = sunTimes(o, loc), b = sunTimes(addDays(o, 1), loc);
+    var sr = a.sunrise, ss = a.sunset, srN = b.sunrise;
+    if (sr == null || ss == null || srN == null) return null;
+    var wd = new Date(Date.UTC(o.y, o.m - 1, o.d)).getUTCDay();
+    var dseg = (ss - sr) / 8, nseg = (srN - ss) / 8;
+    var dayPart = function (n) { return [sr + (n - 1) * dseg, sr + n * dseg]; };
+    var nightPart = function (n) { return [ss + (n - 1) * nseg, ss + n * nseg]; };
+    var slots = [];
+    var start = LORD_SEQ.indexOf(WEEK_LORD[wd]);
+    var vv = VAAR_VELA_SEG[wd], kv = KAAL_VELA_SEG[wd], kr = KAAL_RATRI_SEG[wd];
+    for (var i = 0; i < 8; i++) {
+      var nm = CHOG_NAME[LORD_SEQ[(start + i) % 7]], n = i + 1, ov = [], ex = [];
+      if (vv.indexOf(n) >= 0) ov.push('Vaar Vela');
+      if (kv.indexOf(n) >= 0) ov.push('Kaal Vela');
+      if (RAHU_SEG[wd] === n) ex.push('Rahu Kaal');
+      if (YAMA_SEG[wd] === n) ex.push('Yamaganda');
+      if (GULI_SEG[wd] === n) ex.push('Gulika');
+      slots.push({ part: 'day', n: n, name: nm, quality: CHOG_QUAL[nm], overlays: ov, extra: ex,
+        start: sr + i * dseg, end: sr + (i + 1) * dseg, date: iso(o) });
+    }
+    var nstart = LORD_SEQ.indexOf(WEEK_LORD[(wd + 4) % 7]);
+    for (var j = 0; j < 8; j++) {
+      var nm2 = CHOG_NAME[LORD_SEQ[(((nstart - 2 * j) % 7) + 7) % 7]];
+      slots.push({ part: 'night', n: j + 1, name: nm2, quality: CHOG_QUAL[nm2],
+        overlays: kr.indexOf(j + 1) >= 0 ? ['Kaal Ratri'] : [], extra: [],
+        start: ss + j * nseg, end: ss + (j + 1) * nseg, date: iso(o) });
+    }
+    var P = function (x) { return { start: x[0], end: x[1] }; };
+    return {
+      date: iso(o), ymd: o, weekday: wd, weekdayName: WEEKDAY[wd], vaar: VAAR[wd],
+      sunrise: sr, sunset: ss, nextSunrise: srN, midnight: midnight(o, loc.tz(o)),
+      slots: slots,
+      rahu: P(dayPart(RAHU_SEG[wd])), yama: P(dayPart(YAMA_SEG[wd])), guli: P(dayPart(GULI_SEG[wd])),
+      vaarVela: vv.map(dayPart).map(P), kaalVela: kv.map(dayPart).map(P), kaalRatri: kr.map(nightPart).map(P)
+    };
+  }
+
+  function badIntervals(D) {
+    var out = [];
+    out.push([D.rahu.start, D.rahu.end, 'Rahu Kaal'], [D.yama.start, D.yama.end, 'Yamaganda'], [D.guli.start, D.guli.end, 'Gulika']);
+    D.vaarVela.forEach(function (x) { out.push([x.start, x.end, 'Vaar Vela']); });
+    D.kaalVela.forEach(function (x) { out.push([x.start, x.end, 'Kaal Vela']); });
+    D.kaalRatri.forEach(function (x) { out.push([x.start, x.end, 'Kaal Ratri']); });
+    return out;
+  }
+  function subtract(a0, a1, bad) {
+    var pieces = [[a0, a1]];
+    bad.forEach(function (b) {
+      var nw = [];
+      pieces.forEach(function (p) {
+        if (b[1] <= p[0] || b[0] >= p[1]) { nw.push(p); return; }
+        if (p[0] < b[0]) nw.push([p[0], b[0]]);
+        if (b[1] < p[1]) nw.push([b[1], p[1]]);
+      });
+      pieces = nw;
+    });
+    return pieces;
+  }
+  // Clean slots = Amrit/Shubh/Labh minus Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela, Kaal Ratri
+  // (same rule as good_slots / next_good_slots in panchang.py, min 20 minutes).
+  function cleanSlots(days, minMinutes) {
+    minMinutes = minMinutes == null ? 20 : minMinutes;
+    var bad = [];
+    days.forEach(function (D) { if (D) bad = bad.concat(badIntervals(D)); });
+    var res = [];
+    days.forEach(function (D) {
+      if (!D) return;
+      D.slots.forEach(function (c) {
+        if (GOOD_CHOG.indexOf(c.name) < 0) return;
+        subtract(c.start, c.end, bad).forEach(function (p) {
+          if ((p[1] - p[0]) / 60000 >= minMinutes) res.push({ name: c.name, part: c.part, date: c.date, start: p[0], end: p[1] });
+        });
+      });
+    });
+    res.sort(function (a, b) { return a.start - b.start; });
+    return res;
+  }
+  // Which slot holds instant t? Looks in the previous day's night first (pre-sunrise hours).
+  function slotAt(t, Dprev, D) {
+    var lists = [Dprev, D];
+    for (var k = 0; k < lists.length; k++) {
+      var L = lists[k]; if (!L) continue;
+      for (var i = 0; i < L.slots.length; i++) {
+        var s = L.slots[i];
+        if (t >= s.start && t < s.end) return { slot: s, day: L, index: i, fromPrevNight: k === 0 };
+      }
+    }
+    return null;
+  }
+  function warnings(s) { return s.overlays.concat(s.extra); }
+  return { computeDay: computeDay, sunTimes: sunTimes, cleanSlots: cleanSlots, slotAt: slotAt, warnings: warnings,
+    addDays: addDays, iso: iso, parseISO: parseISO, midnight: midnight, badIntervals: badIntervals,
+    CHOG_QUAL: CHOG_QUAL, GOOD_CHOG: GOOD_CHOG, WEEKDAY: WEEKDAY };
+})();
+if (typeof module !== 'undefined') module.exports = CW;
+// ===== ENGINE END =====
+// ===== UI =====
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var PIPLI = { name: 'Pipli, Kurukshetra', lat: 29.9775, lon: 76.8928, tz: function () { return 330; }, tzLabel: 'IST' };
+  var loc = PIPLI;
+  var state = { sel: null, todayMode: true, now: Date.now() };
+  var ABBR = { 'Vaar Vela': 'VV', 'Kaal Vela': 'KV', 'Kaal Ratri': 'KR', 'Rahu Kaal': 'RK', 'Yamaganda': 'YG', 'Gulika': 'GK' };
+  var QTEXT = { best: 'Best', good: 'Good', neutral: 'Neutral', bad: 'Avoid' };
+  var MEANING = { Amrit: 'nectar', Shubh: 'auspicious', Labh: 'gain', Chal: 'moving', Udveg: 'anxiety', Kaal: 'loss', Rog: 'illness' };
+  var canvas = $('wheel'), wrap = $('wrap'), ctx = canvas.getContext('2d');
+  var params = new URLSearchParams(location.search);
+
+  // ---------- HTML-in-Canvas feature detection ----------
+  var HIC = params.get('mode') !== 'fallback' &&
+    typeof CanvasRenderingContext2D !== 'undefined' && 'drawElementImage' in CanvasRenderingContext2D.prototype;
+  if (HIC) { canvas.setAttribute('content', 'drawable'); }
+  function setBadge() {
+    var b = $('mode');
+    b.textContent = HIC ? 'HTML-in-Canvas mode' : 'Fallback mode (canvas + HTML overlay)';
+    b.className = 'badge' + (HIC ? ' hic' : '');
+    b.title = HIC ? 'Labels and the centre card are live HTML drawn into the canvas with drawElementImage() (Chrome 157+).'
+                  : 'This browser has no HTML-in-Canvas support, so labels are canvas text and the centre card floats over the wheel.';
+  }
+
+  // centre card + 16 label elements
+  var centre = document.createElement('div'); centre.id = 'centre';
+  var labels = [];
+  for (var i = 0; i < 16; i++) { var l = document.createElement('span'); l.className = 'lbl'; labels.push(l); }
+  function mountElements() {
+    if (HIC) {
+      wrap.classList.remove('overlay');
+      centre.setAttribute('drawable', ''); canvas.appendChild(centre);
+      labels.forEach(function (l) { l.setAttribute('drawable', ''); canvas.appendChild(l); });
+    } else {
+      canvas.removeAttribute('content');
+      wrap.classList.add('overlay');
+      centre.removeAttribute('drawable'); wrap.appendChild(centre);
+      labels.forEach(function (l) { if (l.parentNode) l.parentNode.removeChild(l); });
+    }
+  }
+  function toFallback(err) {
+    if (!HIC) return;
+    if (window.console) console.warn('HTML-in-Canvas unavailable, using fallback:', err && err.message);
+    HIC = false; mountElements(); setBadge(); paint();
+  }
+
+  // ---------- time helpers (display in the device time zone) ----------
+  var fmtT0 = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+  // round to the nearest minute (Drik Panchang display convention) before formatting
+  var fmtT = { format: function (t) { return fmtT0.format(Math.round(t / 60000) * 60000); } };
+  var fmtD = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  var fmtDL = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  function devDate(t) { var x = new Date(t); return x.getFullYear() + '-' + (x.getMonth() + 1) + '-' + x.getDate(); }
+  function tm(t, refIso) {
+    var s = fmtT.format(t);
+    if (refIso) { var p = CW.parseISO(refIso); var r = p.y + '-' + p.m + '-' + p.d; if (devDate(t) !== r) s += ' (' + fmtD.format(t) + ')'; }
+    return s;
+  }
+  function dur(ms) { var m = Math.max(0, Math.round(ms / 60000)); return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : m + ' min'; }
+  function locToday() { var off = loc === PIPLI ? 330 : -new Date(state.now).getTimezoneOffset(); var o = new Date(state.now + off * 60000); return { y: o.getUTCFullYear(), m: o.getUTCMonth() + 1, d: o.getUTCDate() }; }
+  function devTzLabel() {
+    var z = ''; try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    var off = -new Date().getTimezoneOffset(), s = off >= 0 ? '+' : '-'; off = Math.abs(off);
+    return (z ? z + ', ' : '') + 'UTC' + s + Math.floor(off / 60) + (off % 60 ? ':' + ('0' + off % 60).slice(-2) : '');
+  }
+  function locMidToday() { return CW.midnight(locToday(), loc.tz(locToday())); }
+
+  // ---------- compute model ----------
+  var model = null;
+  function compute() {
+    state.now = Date.now();
+    if (state.todayMode) state.sel = locToday();
+    var sel = state.sel;
+    var D = CW.computeDay(sel, loc), Dp = CW.computeDay(CW.addDays(sel, -1), loc), Dn = CW.computeDay(CW.addDays(sel, 1), loc);
+    var isToday = CW.iso(sel) === CW.iso(locToday());
+    var target = isToday ? state.now : D ? D.midnight + (state.now - locMidToday()) : state.now;
+    if (!D) { model = { ok: false, sel: sel }; return; }
+    var hit = CW.slotAt(target, Dp, D);
+    var wheelDay = hit && hit.fromPrevNight ? Dp : D;
+    var clean = CW.cleanSlots([Dp, D, Dn]);
+    var nextClean = null;
+    for (var i = 0; i < clean.length; i++) if (clean[i].end > target + 60000) { nextClean = clean[i]; break; }
+    model = { ok: true, sel: sel, D: D, Dp: Dp, Dn: Dn, isToday: isToday, target: target, hit: hit, wheelDay: wheelDay, nextClean: nextClean };
+  }
+
+  // ---------- wheel geometry ----------
+  var css = 360, scale = 1;
+  function resize() {
+    var w = Math.min(wrap.clientWidth || 360, 560);
+    css = w; scale = window.devicePixelRatio || 1;
+    canvas.style.width = w + 'px'; canvas.style.height = w + 'px';
+    canvas.width = Math.round(w * scale); canvas.height = Math.round(w * scale);
+    requestPaint();
+  }
+  function frac(t) { var x = new Date(t); return (x.getHours() * 3600 + x.getMinutes() * 60 + x.getSeconds()) / 86400; }
+  function ang(t) { return Math.PI / 2 + frac(t) * 2 * Math.PI; } // midnight at bottom, noon at top, clockwise
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function qColor(q) { return cssVar('--' + q); }
+
+  function geometry() {
+    var S = css, c = S / 2, Rout = c - 4, Rseg = Rout - 24, Rin = Rseg * 0.56;
+    return { S: S, c: c, Rout: Rout, Rseg: Rseg, Rin: Rin, Rlab: (Rseg + Rin) / 2 + 2 };
+  }
+
+  function paint() {
+    try { paintInner(); } catch (e) { if (HIC) toFallback(e); else throw e; }
+  }
+  function paintInner() {
+    if (ctx.reset) ctx.reset(); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if (!model || !model.ok) return;
+    var g = geometry(), c = g.c, W = model.wheelDay, hit = model.hit;
+    var fg = cssVar('--fg'), muted = cssVar('--muted'), ring = cssVar('--ring'), line = cssVar('--line'), warn = cssVar('--warn'), accent = cssVar('--accent');
+    // hour ring
+    ctx.beginPath(); ctx.arc(c, c, g.Rout, 0, 2 * Math.PI); ctx.fillStyle = ring; ctx.fill();
+    ctx.font = '600 10px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (var h = 0; h < 24; h++) {
+      var a = Math.PI / 2 + h / 24 * 2 * Math.PI, r1 = g.Rout - (h % 3 ? 5 : 8);
+      ctx.beginPath(); ctx.moveTo(c + Math.cos(a) * g.Rout, c + Math.sin(a) * g.Rout); ctx.lineTo(c + Math.cos(a) * r1, c + Math.sin(a) * r1);
+      ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.stroke();
+      if (h % 3 === 0) { ctx.fillStyle = muted; var lbl = h === 0 ? '0' : String(h); ctx.fillText(lbl, c + Math.cos(a) * (g.Rout - 15), c + Math.sin(a) * (g.Rout - 15)); }
+    }
+    // segments
+    W.slots.forEach(function (s, i) {
+      var a0 = ang(s.start), a1 = ang(s.end); if (a1 <= a0) a1 += 2 * Math.PI;
+      var active = hit && hit.slot === s, R = active ? g.Rseg + 6 : g.Rseg;
+      ctx.beginPath(); ctx.arc(c, c, R, a0, a1); ctx.arc(c, c, g.Rin, a1, a0, true); ctx.closePath();
+      ctx.fillStyle = qColor(s.quality); ctx.fill();
+      if (s.part === 'night') { ctx.fillStyle = 'rgba(15,23,42,.38)'; ctx.fill(); }
+      ctx.strokeStyle = cssVar('--card'); ctx.lineWidth = 1.5; ctx.stroke();
+      var w = CW.warnings(s);
+      if (w.length) { // inner warning arc
+        ctx.beginPath(); ctx.arc(c, c, g.Rin + 4, a0 + 0.03, a1 - 0.03); ctx.strokeStyle = warn; ctx.lineWidth = 5; ctx.stroke();
+      }
+      if (active) { ctx.beginPath(); ctx.arc(c, c, R, a0, a1); ctx.arc(c, c, g.Rin, a1, a0, true); ctx.closePath(); ctx.strokeStyle = fg; ctx.lineWidth = 2.5; ctx.stroke(); }
+      // label
+      var am = (a0 + a1) / 2, lx = c + Math.cos(am) * g.Rlab, ly = c + Math.sin(am) * g.Rlab;
+      if (HIC) {
+        var el = labels[i];
+        var wpx = el.offsetWidth, hpx = el.offsetHeight;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawElementImage(el, (lx - wpx / 2) * scale, (ly - hpx / 2) * scale, wpx * scale, hpx * scale);
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      } else {
+        ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 2;
+        ctx.font = '600 12px system-ui,sans-serif'; ctx.fillText(s.name, lx, w.length ? ly - 5 : ly);
+        if (w.length) { ctx.font = '700 9px system-ui,sans-serif'; ctx.fillText(w.map(function (x) { return ABBR[x]; }).join('·'), lx, ly + 7); }
+        ctx.shadowBlur = 0;
+      }
+    });
+    // sunrise / sunset / next sunrise markers
+    [[W.sunrise, '↑ ' + fmtT.format(W.sunrise)], [W.sunset, '↓ ' + fmtT.format(W.sunset)]].forEach(function (m) {
+      var a = ang(m[0]);
+      ctx.beginPath(); ctx.moveTo(c + Math.cos(a) * g.Rin, c + Math.sin(a) * g.Rin); ctx.lineTo(c + Math.cos(a) * (g.Rseg + 8), c + Math.sin(a) * (g.Rseg + 8));
+      ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(c + Math.cos(a) * (g.Rseg + 12), c + Math.sin(a) * (g.Rseg + 12), 6, 0, 2 * Math.PI); ctx.fillStyle = '#f59e0b'; ctx.fill();
+      ctx.font = '700 10px system-ui,sans-serif'; ctx.fillStyle = fg;
+      var tw = ctx.measureText(m[1]).width, mx = c + Math.cos(a) * (g.Rseg + 12);
+      mx = Math.max(tw / 2 + 3, Math.min(g.S - tw / 2 - 3, mx));
+      ctx.save(); ctx.globalAlpha = .9; ctx.fillText(m[1], mx, c + Math.sin(a) * (g.Rseg + 12) + (Math.sin(a) > 0.2 ? 14 : -14)); ctx.restore();
+    });
+    // needle (current time of day)
+    var na = ang(model.target);
+    ctx.beginPath(); ctx.moveTo(c + Math.cos(na) * (g.Rin - 2), c + Math.sin(na) * (g.Rin - 2)); ctx.lineTo(c + Math.cos(na) * (g.Rout - 2), c + Math.sin(na) * (g.Rout - 2));
+    ctx.strokeStyle = fg; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(c + Math.cos(na) * (g.Rout - 2), c + Math.sin(na) * (g.Rout - 2), 5, 0, 2 * Math.PI); ctx.fillStyle = fg; ctx.fill();
+    // centre card
+    if (HIC) {
+      var cw = centre.offsetWidth, ch = centre.offsetHeight;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawElementImage(centre, (c - cw / 2) * scale, (c - ch / 2) * scale, cw * scale, ch * scale);
+    }
+  }
+  function requestPaint() {
+    if (HIC && typeof canvas.requestPaint === 'function') canvas.requestPaint();
+    else if (HIC) requestAnimationFrame(paint);
+    else paint();
+  }
+
+  // ---------- DOM updates ----------
+  function updateDom() {
+    var m = model, act = $('active');
+    $('date').value = CW.iso(state.sel);
+    var tzNote = (-new Date().getTimezoneOffset() !== loc.tz(state.sel)) ? ' · times shown in your device zone (' + devTzLabel() + ')' : ' · times in ' + devTzLabel();
+    $('locText').innerHTML = 'Location: <b>' + loc.name + '</b> (' + Math.abs(loc.lat).toFixed(4) + (loc.lat >= 0 ? ' N, ' : ' S, ') + Math.abs(loc.lon).toFixed(4) + (loc.lon >= 0 ? ' E' : ' W') + ')' + tzNote;
+    $('pipli').style.display = loc === PIPLI ? 'none' : '';
+    if (!m.ok) {
+      act.innerHTML = '<p class="err">No sunrise or sunset on this date at this latitude, so choghadiya is not defined.</p>';
+      $('tbl').tBodies[0].innerHTML = ''; centre.innerHTML = ''; requestPaint(); return;
+    }
+    var D = m.D, hit = m.hit, s = hit && hit.slot;
+    var dateLong = fmtDL.format(Date.UTC(state.sel.y, state.sel.m - 1, state.sel.d));
+    // labels for the wheel (HTML-in-Canvas)
+    m.wheelDay.slots.forEach(function (x, i) {
+      var w = CW.warnings(x);
+      labels[i].innerHTML = x.name + (w.length ? '<small>' + w.map(function (y) { return ABBR[y]; }).join('·') + '</small>' : '');
+      labels[i].setAttribute('aria-label', x.name + ', ' + (x.part === 'day' ? 'day ' : 'night ') + x.n + ', ' + fmtT.format(x.start) + ' to ' + fmtT.format(x.end) + (w.length ? ', ' + w.join(', ') : ''));
+    });
+    $('wheelCap').textContent = 'Wheel: ' + m.wheelDay.weekdayName + ' ' + fmtDL.format(Date.UTC(m.wheelDay.ymd.y, m.wheelDay.ymd.m - 1, m.wheelDay.ymd.d)) + ', sunrise to next sunrise · needle = ' + (m.isToday ? 'now' : 'same clock time');
+    // centre card
+    var g = geometry(), cd = Math.floor(g.Rin * 2 * 0.86);
+    centre.style.width = cd + 'px'; centre.style.height = cd + 'px';
+    if (s) {
+      var wn = CW.warnings(s);
+      centre.innerHTML = '<div class="k">' + (m.isToday ? 'Now' : 'At ' + fmtT0.format(m.target)) + '</div>' +
+        '<div class="n q' + s.quality + '">' + s.name + '</div>' +
+        '<div class="q q' + s.quality + '">' + QTEXT[s.quality] + '</div>' +
+        '<div class="t">' + fmtT.format(s.start) + ' – ' + fmtT.format(s.end) + '</div>' +
+        (m.isToday ? '<div class="t">' + dur(s.end - m.target) + ' left</div>' : '') +
+        (wn.length ? '<div class="w">⚠ ' + wn.map(function (y) { return ABBR[y]; }).join(' · ') + '</div>' : '');
+    } else centre.innerHTML = '<div class="k">No slot</div>';
+    canvas.setAttribute('aria-label', 'Choghadiya wheel for ' + m.wheelDay.weekdayName + ' ' + m.wheelDay.date + (s ? '. ' + (m.isToday ? 'Active now: ' : 'At this clock time: ') + s.name + ', ' + QTEXT[s.quality] + ', ' + fmtT.format(s.start) + ' to ' + fmtT.format(s.end) : ''));
+
+    // active card
+    var h = '';
+    if (s) {
+      var w2 = CW.warnings(s);
+      h += '<h2>' + (m.isToday ? 'Current active slot' : 'Slot at ' + fmtT0.format(m.target) + ' on ' + fmtD.format(m.target)) + '</h2>';
+      h += '<div class="name q' + s.quality + '">' + s.name + ' <span style="font-size:1rem;font-weight:600">· ' + QTEXT[s.quality] + ' (' + MEANING[s.name] + ')</span></div>';
+      h += '<div class="row"><span>' + (s.part === 'day' ? 'Day' : 'Night') + ' choghadiya ' + s.n + ' of 8</span><span><b>' + tm(s.start, CW.iso(state.sel)) + ' – ' + tm(s.end, CW.iso(state.sel)) + '</b></span></div>';
+      if (m.isToday) h += '<div class="row"><span><b>' + dur(s.end - m.target) + '</b> remaining</span><span class="note" style="margin:0">clock ' + fmtT0.format(m.target) + ', updates every 30 s</span></div>';
+      h += '<div class="chips">' + (w2.length ? w2.map(function (x) { return '<span class="chip">⚠ ' + x + '</span>'; }).join('') :
+        (CW.GOOD_CHOG.indexOf(s.name) >= 0 ? '<span class="chip ok">✓ Clean slot (no overlays)</span>' : '<span class="chip ok">No Vela / Kaal Ratri / Rahu overlay</span>')) + '</div>';
+      if (w2.length) h += '<p class="note">' + w2.join(', ') + ' overlap' + (w2.length > 1 ? '' : 's') + ' this slot: traditionally avoid starting new work now, even if the choghadiya is good.</p>';
+      if (hit.fromPrevNight) h += '<p class="note">Before sunrise: this slot belongs to <b>' + hit.day.weekdayName + '’s night</b> (a Vedic day runs sunrise to sunrise), so the wheel shows ' + hit.day.weekdayName + '.</p>';
+    } else h += '<h2>No slot at this time</h2>';
+    h += '<div id="clean">';
+    if (m.nextClean) {
+      var nc = m.nextClean, started = nc.start <= m.target;
+      h += '<b>' + (started ? 'Clean slot now' : 'Next clean slot') + ':</b> ' + nc.name + ' (' + nc.part + ') ' +
+        (started ? 'until ' + tm(nc.end, CW.iso(state.sel)) + ' · ' + dur(nc.end - m.target) + ' left' :
+          tm(nc.start, CW.iso(state.sel)) + ' – ' + tm(nc.end, CW.iso(state.sel)) + ' · ' + dur(nc.end - nc.start));
+    } else h += '<b>Next clean slot:</b> none in the next day.';
+    h += '</div>';
+    h += '<p class="note">' + D.weekdayName + ' (' + D.vaar + '), ' + dateLong + ' · Sunrise ' + fmtT.format(D.sunrise) + ' · Sunset ' + fmtT.format(D.sunset) +
+      ' · Rahu Kaal ' + fmtT.format(D.rahu.start) + '–' + fmtT.format(D.rahu.end) + '</p>';
+    act.innerHTML = h;
+
+    // table
+    $('tableTitle').textContent = 'All 16 slots · ' + D.weekdayName + ', ' + dateLong;
+    var rows = '';
+    function row(x, label) {
+      var w = CW.warnings(x), cur = hit && hit.slot === x;
+      return '<tr' + (cur ? ' class="cur" aria-current="true"' : '') + '><td>' + label + '</td><td><i class="dot" style="background:var(--' + x.quality + ')"></i><b>' + x.name + '</b> <span class="q' + x.quality + '" style="font-size:.8rem">' + QTEXT[x.quality] + '</span>' + (cur ? ' <b>◀ ' + (m.isToday ? 'now' : 'this time') + '</b>' : '') + '</td><td>' + tm(x.start, D.date) + '</td><td>' + tm(x.end, D.date) + '</td><td class="ov">' + w.join(', ') + '</td></tr>';
+    }
+    if (m.Dp) {
+      var tail = m.Dp.slots.filter(function (x) { return x.part === 'night' && x.end > D.midnight; });
+      if (tail.length) { rows += '<tr class="sec"><td colspan="5">Early hours: ' + m.Dp.weekdayName + '’s night continues until sunrise</td></tr>'; tail.forEach(function (x) { rows += row(x, 'N' + x.n); }); }
+    }
+    rows += '<tr class="sec"><td colspan="5">Day: sunrise ' + fmtT.format(D.sunrise) + ' → sunset ' + fmtT.format(D.sunset) + '</td></tr>';
+    D.slots.slice(0, 8).forEach(function (x) { rows += row(x, 'D' + x.n); });
+    rows += '<tr class="sec"><td colspan="5">Night: sunset ' + fmtT.format(D.sunset) + ' → next sunrise ' + tm(D.nextSunrise, D.date) + '</td></tr>';
+    D.slots.slice(8).forEach(function (x) { rows += row(x, 'N' + x.n); });
+    $('tbl').tBodies[0].innerHTML = rows;
+    requestPaint();
+  }
+  function refresh() { compute(); updateDom(); }
+
+  // ---------- controls ----------
+  function setDate(o) { state.sel = o; state.todayMode = CW.iso(o) === CW.iso(locToday()); refresh(); }
+  $('prev').onclick = function () { setDate(CW.addDays(state.sel, -1)); };
+  $('next').onclick = function () { setDate(CW.addDays(state.sel, 1)); };
+  $('today').onclick = function () { state.todayMode = true; refresh(); };
+  $('date').onchange = function () { if (this.value) setDate(CW.parseISO(this.value)); };
+  $('theme').onclick = function () {
+    var r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark'; refresh();
+  };
+  $('geo').onclick = function () {
+    var msg = $('geoMsg');
+    if (!navigator.geolocation) { msg.textContent = 'Location is not available in this browser.'; return; }
+    msg.textContent = 'Asking for your location…';
+    navigator.geolocation.getCurrentPosition(function (p) {
+      loc = { name: 'Your location', lat: p.coords.latitude, lon: p.coords.longitude,
+        tz: function (o) { return -new Date(o.y, o.m - 1, o.d, 12).getTimezoneOffset(); } };
+      msg.textContent = 'Using your location for this visit only (not stored or sent anywhere). Times use your device time zone.';
+      refresh();
+    }, function (e) { msg.textContent = 'Could not get your location (' + (e.message || 'permission denied') + '). Still using Pipli.'; },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+  };
+  $('pipli').onclick = function () { loc = PIPLI; $('geoMsg').textContent = ''; refresh(); };
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refresh);
+
+  // ---------- start ----------
+  setBadge(); mountElements();
+  if (HIC) canvas.onpaint = paint;
+  window.addEventListener('resize', function () { resize(); updateDom(); });
+  resize(); refresh();
+  setInterval(refresh, 30000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+  // expose for testing
+  window.__cw = { model: function () { return model; }, mode: function () { return HIC ? 'html-in-canvas' : 'fallback'; } };
+})();
+</script>
+</body>
+</html>
