@@ -63,7 +63,7 @@ The logic is a direct port of the Swiss Ephemeris panchang engine used for the d
 - **The engine, on 12 dates from 2025 to 2030** (including Saturdays, 21 June and 21 December). Sunrise, sunset, all 16 slot boundaries and every overlay agreed within 0.13 minutes, with no name or overlay mismatches.
 - **Drik Panchang's choghadiya tables for Thanesar on 1, 2 and 4 Nov 2026.** All names and Vela/Kaal Ratri markers matched, and times agreed within 0.6 minutes. Drik shows whole minutes.
 
-- **Automated tests** (`npm test`, no dependencies): the engine against frozen Swiss Ephemeris fixtures for 12 dates (sunrise, sunset and slot boundaries within 1 minute), every overlay against the table above, clean slots never overlapping an overlay, and every API file against a fresh engine run. A GitHub Action runs them on each push; it only reads the repo and never commits.
+- **Automated tests** (`npm test`, no dependencies): the engine against frozen Swiss Ephemeris fixtures for 12 dates (sunrise, sunset and slot boundaries within 1 minute), every overlay against the table above, clean slots never overlapping an overlay, and every API file against a fresh engine run. Run them with `npm test` before pushing.
 
 ## Sources
 
