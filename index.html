@@ -117,7 +117,8 @@ footer p{margin:6px 0}
 </footer>
 </main>
 <script>
-// ===== ENGINE START (ported from jyotish/panchang.py; keep in sync) =====
+/* ENGINE:START — pure calculation, no DOM. Ported from jyotish/panchang.py; keep in sync.
+   scripts/build-api.mjs and test/ extract the code between these two markers and run it in Node. */
 var CW = (function () {
   var RAD = Math.PI / 180;
   // Weekday 0=Sunday..6=Saturday. Planet lords in choghadiya/hora order.
@@ -296,7 +297,7 @@ var CW = (function () {
     CHOG_QUAL: CHOG_QUAL, GOOD_CHOG: GOOD_CHOG, WEEKDAY: WEEKDAY };
 })();
 if (typeof module !== 'undefined') module.exports = CW;
-// ===== ENGINE END =====
+/* ENGINE:END */
 // ===== UI =====
 (function () {
   'use strict';
@@ -309,6 +310,16 @@ if (typeof module !== 'undefined') module.exports = CW;
   var MEANING = { Amrit: 'nectar', Shubh: 'auspicious', Labh: 'gain', Chal: 'moving', Udveg: 'anxiety', Kaal: 'loss', Rog: 'illness' };
   var canvas = $('wheel'), wrap = $('wrap'), ctx = canvas.getContext('2d');
   var params = new URLSearchParams(location.search);
+  // ?date=YYYY-MM-DD&lat=&lon= (time zone stays IST). Anything invalid falls back to today and Pipli.
+  function paramDate(s) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return null;
+    var o = CW.parseISO(s), c = CW.addDays(o, 0);
+    return o.y >= 1900 && o.y <= 2100 && CW.iso(c) === s ? o : null;
+  }
+  function paramNum(s, max) {
+    if (!/^\s*-?\d+(\.\d+)?\s*$/.test(s || '')) return null;
+    var x = parseFloat(s); return Math.abs(x) <= max ? x : null;
+  }
 
   // ---------- HTML-in-Canvas feature detection ----------
   var HIC = params.get('mode') !== 'fallback' &&
@@ -357,7 +368,7 @@ if (typeof module !== 'undefined') module.exports = CW;
     return s;
   }
   function dur(ms) { var m = Math.max(0, Math.round(ms / 60000)); return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : m + ' min'; }
-  function locToday() { var off = loc === PIPLI ? 330 : -new Date(state.now).getTimezoneOffset(); var o = new Date(state.now + off * 60000); return { y: o.getUTCFullYear(), m: o.getUTCMonth() + 1, d: o.getUTCDate() }; }
+  function locToday() { var off = loc.tzLabel === 'IST' ? 330 : -new Date(state.now).getTimezoneOffset(); var o = new Date(state.now + off * 60000); return { y: o.getUTCFullYear(), m: o.getUTCMonth() + 1, d: o.getUTCDate() }; }
   function devTzLabel() {
     var z = ''; try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
     var off = -new Date().getTimezoneOffset(), s = off >= 0 ? '+' : '-'; off = Math.abs(off);
@@ -581,7 +592,22 @@ if (typeof module !== 'undefined') module.exports = CW;
   $('pipli').onclick = function () { loc = PIPLI; $('geoMsg').textContent = ''; refresh(); };
   if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refresh);
 
+  // keyboard: Left/Right = previous/next day, T = today (ignored while typing in a field)
+  document.addEventListener('keydown', function (e) {
+    var t = e.target, tag = t && t.tagName;
+    if (e.altKey || e.ctrlKey || e.metaKey || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+    if (e.key === 'ArrowLeft') { setDate(CW.addDays(state.sel, -1)); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { setDate(CW.addDays(state.sel, 1)); e.preventDefault(); }
+    else if (e.key === 't' || e.key === 'T') { state.todayMode = true; refresh(); }
+  });
+
   // ---------- start ----------
+  var pLat = paramNum(params.get('lat'), 90), pLon = paramNum(params.get('lon'), 180);
+  if (pLat !== null && pLon !== null && CW.computeDay(locToday(), { lat: pLat, lon: pLon, tz: PIPLI.tz })) {
+    loc = { name: 'Place from the link', lat: pLat, lon: pLon, tz: PIPLI.tz, tzLabel: 'IST' };
+  }
+  var pDate = paramDate(params.get('date'));
+  if (pDate) { state.sel = pDate; state.todayMode = CW.iso(pDate) === CW.iso(locToday()); }
   setBadge(); mountElements();
   if (HIC) canvas.onpaint = paint;
   window.addEventListener('resize', function () { resize(); updateDom(); });
