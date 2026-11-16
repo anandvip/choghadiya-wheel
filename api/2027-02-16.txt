@@ -1,0 +1,20 @@
+Choghadiya 2027-02-16 Tuesday (Mangalvar) · Pipli 29.9775N 76.8928E · IST
+Sunrise 07:02 · Sunset 18:12 · Next sunrise 07:01
+D1 07:02-08:26 Rog   bad
+D2 08:26-09:49 Udveg bad     VV
+D3 09:49-11:13 Chal  neutral YG
+D4 11:13-12:37 Labh  good    clean
+D5 12:37-14:00 Amrit best    GK
+D6 14:00-15:24 Kaal  bad     KV
+D7 15:24-16:48 Shubh good    RK
+D8 16:48-18:12 Rog   bad
+N1 18:12-19:48 Kaal  bad
+N2 19:48-21:24 Labh  good    KR
+N3 21:24-23:00 Udveg bad
+N4 23:00-00:36 Shubh good    clean
+N5 00:36-02:12 Amrit best    clean
+N6 02:12-03:49 Chal  neutral
+N7 03:49-05:25 Rog   bad
+N8 05:25-07:01 Kaal  bad
+VV/KV Vaar/Kaal Vela, KR Kaal Ratri, RK Rahu Kaal, YG Yamaganda, GK Gulika. clean: no overlay.
+Before sunrise, use the previous date's night slots.

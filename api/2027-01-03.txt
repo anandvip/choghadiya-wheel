@@ -1,0 +1,20 @@
+Choghadiya 2027-01-03 Sunday (Ravivar) · Pipli 29.9775N 76.8928E · IST
+Sunrise 07:19 · Sunset 17:35 · Next sunrise 07:19
+D1 07:19-08:36 Udveg bad
+D2 08:36-09:53 Chal  neutral
+D3 09:53-11:10 Labh  good    clean
+D4 11:10-12:27 Amrit best    VV
+D5 12:27-13:44 Kaal  bad     KV,YG
+D6 13:44-15:01 Shubh good    clean
+D7 15:01-16:18 Rog   bad     GK
+D8 16:18-17:35 Udveg bad     RK
+N1 17:35-19:18 Shubh good    clean
+N2 19:18-21:01 Amrit best    clean
+N3 21:01-22:44 Chal  neutral
+N4 22:44-00:27 Rog   bad
+N5 00:27-02:10 Kaal  bad
+N6 02:10-03:53 Labh  good    KR
+N7 03:53-05:36 Udveg bad
+N8 05:36-07:19 Shubh good    clean
+VV/KV Vaar/Kaal Vela, KR Kaal Ratri, RK Rahu Kaal, YG Yamaganda, GK Gulika. clean: no overlay.
+Before sunrise, use the previous date's night slots.

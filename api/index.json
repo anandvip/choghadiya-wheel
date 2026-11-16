@@ -1,0 +1,21 @@
+{
+ "name": "Choghadiya Wheel static API",
+ "location": {
+  "name": "Pipli, Kurukshetra",
+  "lat": 29.9775,
+  "lon": 76.8928
+ },
+ "tz": "Asia/Kolkata",
+ "from": "2026-11-16",
+ "to": "2027-12-31",
+ "days": 411,
+ "json": "https://anandvip.github.io/choghadiya-wheel/api/{YYYY-MM-DD}.json",
+ "txt": "https://anandvip.github.io/choghadiya-wheel/api/{YYYY-MM-DD}.txt",
+ "rule": "A Vedic day runs sunrise to sunrise: if the time now is before this date's sunrise, use the previous date's file and its night slots.",
+ "page": "https://anandvip.github.io/choghadiya-wheel/?date={YYYY-MM-DD}",
+ "generatedFrom": {
+  "file": "index.html",
+  "commit": "a21355a",
+  "engine": "db27e57c1b9e"
+ }
+}

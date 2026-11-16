@@ -1,0 +1,20 @@
+Choghadiya 2027-08-28 Saturday (Shanivar) · Pipli 29.9775N 76.8928E · IST
+Sunrise 05:57 · Sunset 18:50 · Next sunrise 05:57
+D1 05:57-07:34 Kaal  bad     KV,GK
+D2 07:34-09:10 Shubh good    clean
+D3 09:10-10:47 Rog   bad     RK
+D4 10:47-12:24 Udveg bad
+D5 12:24-14:00 Chal  neutral
+D6 14:00-15:37 Labh  good    VV,YG
+D7 15:37-17:14 Amrit best    clean
+D8 17:14-18:50 Kaal  bad     KV
+N1 18:50-20:14 Labh  good    KR
+N2 20:14-21:37 Udveg bad
+N3 21:37-23:00 Shubh good    clean
+N4 23:00-00:24 Amrit best    clean
+N5 00:24-01:47 Chal  neutral
+N6 01:47-03:11 Rog   bad
+N7 03:11-04:34 Kaal  bad
+N8 04:34-05:57 Labh  good    KR
+VV/KV Vaar/Kaal Vela, KR Kaal Ratri, RK Rahu Kaal, YG Yamaganda, GK Gulika. clean: no overlay.
+Before sunrise, use the previous date's night slots.

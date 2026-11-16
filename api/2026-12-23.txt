@@ -1,0 +1,20 @@
+Choghadiya 2026-12-23 Wednesday (Budhvar) · Pipli 29.9775N 76.8928E · IST
+Sunrise 07:15 · Sunset 17:28 · Next sunrise 07:15
+D1 07:15-08:31 Labh  good    clean
+D2 08:31-09:48 Amrit best    YG
+D3 09:48-11:05 Kaal  bad     KV
+D4 11:05-12:21 Shubh good    GK
+D5 12:21-13:38 Rog   bad     VV,RK
+D6 13:38-14:55 Udveg bad
+D7 14:55-16:11 Chal  neutral
+D8 16:11-17:28 Labh  good    clean
+N1 17:28-19:11 Udveg bad
+N2 19:11-20:55 Shubh good    clean
+N3 20:55-22:38 Amrit best    clean
+N4 22:38-00:22 Chal  neutral
+N5 00:22-02:05 Rog   bad
+N6 02:05-03:48 Kaal  bad
+N7 03:48-05:32 Labh  good    KR
+N8 05:32-07:15 Udveg bad
+VV/KV Vaar/Kaal Vela, KR Kaal Ratri, RK Rahu Kaal, YG Yamaganda, GK Gulika. clean: no overlay.
+Before sunrise, use the previous date's night slots.
