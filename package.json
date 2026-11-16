@@ -1,0 +1,10 @@
+{
+  "name": "choghadiya-wheel",
+  "private": true,
+  "description": "Single-file choghadiya wheel with a static per-date API for Pipli",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "build:api": "node scripts/build-api.mjs"
+  }
+}
