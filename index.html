@@ -20,7 +20,7 @@ h1{font-size:1.25rem;margin:0}
 h2{font-size:1.05rem;margin:0 0 8px}
 .badge{font-size:.72rem;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}
 .badge.hic{border-color:#15803d;color:#15803d}
-button,input[type=date]{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 11px;min-height:38px}
+button,input[type=date],input[type=text],input[type=number],select,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 11px;min-height:38px}
 button{cursor:pointer}button:hover{border-color:var(--accent)}
 button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
@@ -63,6 +63,18 @@ footer{margin-top:22px;font-size:.82rem;color:var(--muted);border-top:1px solid 
 footer p{margin:6px 0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .err{color:var(--warn)}
+.tasks{list-style:none;margin:8px 0 0;padding:0}
+.task{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0}
+.task .tt{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.task .tt b{overflow-wrap:anywhere}
+.task.done .tt b{text-decoration:line-through;color:var(--muted)}
+.task .bar select{flex:1 1 200px;min-width:0}
+.task input.tnote{width:100%}
+.tag.st-done{border-color:var(--best);color:var(--best)}
+.tag.st-skipped{color:var(--muted)}
+.tag.st-moved{border-color:var(--accent);color:var(--accent)}
+button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--card))}
+#taskForm input[type=text]{flex:1 1 220px;min-width:0}
 tr.past td{opacity:.55}
 .tag{font-size:.72rem;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .tag.now{border-color:var(--accent);color:var(--accent)}
@@ -111,6 +123,20 @@ tr.past td{opacity:.55}
   <h2 id="clearTitle">Clear slots today</h2>
   <div style="overflow-x:auto"><table id="clearTbl"><thead><tr><th>#</th><th>Choghadiya</th><th>Time</th><th>Why</th></tr></thead><tbody></tbody></table></div>
   <p class="note"><b>Clean</b> = Amrit, Shubh or Labh with no Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela or Kaal Ratri, at least 20 minutes. <b>Partial overlaps are trimmed:</b> the slot is listed as spoiled, and its clean part (20 minutes or more) is listed as a clean window marked <i>trimmed</i>. With the classical eighths an overlay always covers a whole choghadiya, so trimming is rare. Rog, Kaal and Udveg are <b>not for new starts</b>; Chal (neutral) isn’t listed.</p>
+</section>
+
+<section class="card" id="tasksSec" style="margin-top:14px" aria-labelledby="tasksTitle">
+  <h2 id="tasksTitle">Focus tasks</h2>
+  <p class="note" style="margin-top:0">Add your own tasks and give each one a clean window from the list above. Use ◀ / ▶ to plan another day. Saved <b>only in this browser</b> (localStorage): never in the link, never sent anywhere, and a new visitor sees an empty list.</p>
+  <form id="taskForm" class="bar" autocomplete="off">
+    <label class="sr" for="taskTitle">New task</label>
+    <input id="taskTitle" type="text" maxlength="120" placeholder="Add a task…" required>
+    <label class="sr" for="taskTerm">Term</label>
+    <select id="taskTerm"><option value="short">Short-term</option><option value="long">Long-term</option></select>
+    <button type="submit" class="primary">Add</button>
+  </form>
+  <ul id="taskList" class="tasks"></ul>
+  <p id="taskEmpty" class="note">No tasks yet.</p>
 </section>
 
 <section class="card" style="margin-top:14px">
@@ -669,7 +695,77 @@ var CP = (function (CW) {
     h += plan.avoid.map(function (x) { return tr(x, x.reasons.length ? 'Also ' + reasons(x) : '', 'avoid'); }).join('');
     tb.innerHTML = h;
   }
-  function refresh() { compute(); updateDom(); renderClear(model); }
+
+  // ---------- focus tasks: localStorage only, never in the URL or sent anywhere ----------
+  var TKEY = 'cw.focusTasks.v1';
+  var tasks = loadTasks(), taskView = '';
+  function loadTasks() {
+    try { var a = JSON.parse(localStorage.getItem(TKEY) || '[]'); return Array.isArray(a) ? a.filter(function (t) { return t && typeof t.title === 'string'; }) : []; }
+    catch (e) { return []; }
+  }
+  function saveTasks() { try { localStorage.setItem(TKEY, JSON.stringify(tasks)); } catch (e) { $('taskEmpty').textContent = 'This browser is not saving data, so tasks will be lost on reload.'; } }
+  function esc(x) { return String(x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function slotOf(c) { return { key: CP.key(c), date: c.date, part: c.part, n: c.n, name: c.name, start: c.start, end: c.end, trimmed: !!c.trimmed, place: loc.name }; }
+  function slotTxt(sl) { return fmtD.format(sl.start) + ' · ' + sl.name + ' (' + (sl.part === 'day' ? 'D' : 'N') + sl.n + (sl.trimmed ? ', trimmed' : '') + ') ' + fmtT.format(sl.start) + ' – ' + fmtT.format(sl.end); }
+  var STATUS = { open: 'Open', done: 'Done', skipped: 'Skipped', moved: 'Moved' };
+  var rendering = false;
+  function renderTasks() {
+    if (rendering) return; rendering = true;
+    try { drawTasks(); } finally { rendering = false; }
+  }
+  function drawTasks() {
+    var list = $('taskList'), opts = plan ? plan.clean.filter(function (c) { return !(model.isToday && c.end <= state.now); }) : [];
+    taskView = viewKey();
+    $('taskEmpty').style.display = tasks.length ? 'none' : '';
+    list.innerHTML = tasks.map(function (t) {
+      var o = '<option value="">' + (t.slot ? 'Move to a clean window…' : 'Assign a clean window…') + '</option>';
+      if (t.slot) o += '<option value="' + esc(t.slot.key) + '" selected>' + esc(slotTxt(t.slot)) + '</option>';
+      opts.forEach(function (c) { var k = CP.key(c); if (!t.slot || k !== t.slot.key) o += '<option value="' + esc(k) + '">' + esc(slotTxt(slotOf(c))) + '</option>'; });
+      var st = t.status || 'open';
+      return '<li class="task ' + st + '" data-id="' + esc(t.id) + '"><div class="tt"><b>' + esc(t.title) + '</b><span class="tag">' + (t.term === 'long' ? 'Long-term' : 'Short-term') + '</span>' +
+        '<span class="tag st-' + st + '">' + STATUS[st] + '</span></div>' +
+        '<div class="bar"><select class="assign" aria-label="Clean window for ' + esc(t.title) + '">' + o + '</select>' +
+        ['done', 'skipped', 'moved'].map(function (a) { return '<button type="button" data-act="' + a + '" aria-pressed="' + (st === a) + '">' + { done: '✓ Done', skipped: 'Skip', moved: 'Move' }[a] + '</button>'; }).join('') +
+        '<button type="button" data-act="del" aria-label="Remove ' + esc(t.title) + '">✕</button></div>' +
+        '<input class="tnote" type="text" maxlength="140" placeholder="Short note (optional)" aria-label="Note for ' + esc(t.title) + '" value="' + esc(t.note || '') + '">' +
+        (t.movedFrom ? '<div class="note">Moved from ' + esc(slotTxt(t.movedFrom)) + '</div>' : '') +
+        (!t.slot ? '<div class="note">Not assigned yet.</div>' : '') + '</li>';
+    }).join('');
+  }
+  function viewKey() { return model && model.ok ? model.D.date + '|' + loc.name + '|' + (plan ? plan.clean.filter(function (c) { return !(model.isToday && c.end <= state.now); }).length : 0) : ''; }
+  function findTask(el) { var li = el.closest('li.task'), id = li && li.getAttribute('data-id'); for (var i = 0; i < tasks.length; i++) if (tasks[i].id === id) return i; return -1; }
+  $('taskForm').onsubmit = function (e) {
+    e.preventDefault();
+    var title = $('taskTitle').value.trim(); if (!title) return;
+    tasks.push({ id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: title.slice(0, 120), term: $('taskTerm').value === 'long' ? 'long' : 'short',
+      status: 'open', note: '', slot: null, created: Date.now() });
+    $('taskTitle').value = ''; saveTasks(); renderTasks();
+  };
+  $('taskList').addEventListener('change', function (e) {
+    var i = findTask(e.target); if (i < 0) return; var t = tasks[i];
+    if (e.target.classList.contains('assign')) {
+      var k = e.target.value, c = plan && plan.clean.filter(function (x) { return CP.key(x) === k; })[0];
+      if (!c || (t.slot && t.slot.key === k)) return;
+      if (t.slot) { t.movedFrom = t.slot; t.status = 'moved'; } else if (t.status !== 'moved') t.status = 'open';
+      t.slot = slotOf(c);
+    } else if (e.target.classList.contains('tnote')) { t.note = e.target.value.slice(0, 140); saveTasks(); return; } // no re-render: the input may be blurring
+    saveTasks(); renderTasks();
+  });
+  $('taskList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var i = findTask(b); if (i < 0) return; var t = tasks[i], a = b.getAttribute('data-act');
+    if (a === 'del') tasks.splice(i, 1);
+    else if (a === 'moved') { if (t.status === 'moved' && !t.slot) t.status = 'open'; else { if (t.slot) { t.movedFrom = t.slot; t.slot = null; } t.status = 'moved'; } }
+    else t.status = t.status === a ? 'open' : a;
+    saveTasks(); renderTasks();
+    if (a === 'moved') { var li = $('taskList').querySelector('li[data-id="' + t.id + '"] select'); if (li) li.focus(); }
+  });
+  window.addEventListener('storage', function (e) { if (e.key === TKEY) { tasks = loadTasks(); renderTasks(); } });
+  function refresh() {
+    compute(); updateDom(); renderClear(model);
+    // re-render tasks only when the day, place or open windows change, so typing in a note is never interrupted
+    if (viewKey() !== taskView) renderTasks();
+  }
 
   // ---------- controls ----------
   function setDate(o) { state.sel = o; state.todayMode = CW.iso(o) === CW.iso(locToday()); refresh(); }
@@ -719,7 +815,7 @@ var CP = (function (CW) {
   setInterval(refresh, 30000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   // expose for testing
-  window.__cw = { model: function () { return model; }, plan: function () { return plan; }, mode: function () { return HIC ? 'html-in-canvas' : 'fallback'; } };
+  window.__cw = { model: function () { return model; }, plan: function () { return plan; }, tasks: function () { return tasks; }, mode: function () { return HIC ? 'html-in-canvas' : 'fallback'; } };
 })();
 </script>
 </body>
