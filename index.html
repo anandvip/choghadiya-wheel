@@ -121,7 +121,7 @@ tr.past td{opacity:.55}
 
 <section class="card" id="clearSec" style="margin-top:14px" aria-labelledby="clearTitle">
   <h2 id="clearTitle">Clear slots today</h2>
-  <div style="overflow-x:auto"><table id="clearTbl"><thead><tr><th>#</th><th>Choghadiya</th><th>Time</th><th>Why</th></tr></thead><tbody></tbody></table></div>
+  <div style="overflow-x:auto"><table id="clearTbl"><thead><tr><th>#</th><th>Choghadiya · why</th><th>Time</th></tr></thead><tbody></tbody></table></div>
   <p class="note"><b>Clean</b> = Amrit, Shubh or Labh with no Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela or Kaal Ratri, at least 20 minutes. <b>Partial overlaps are trimmed:</b> the slot is listed as spoiled, and its clean part (20 minutes or more) is listed as a clean window marked <i>trimmed</i>. With the classical eighths an overlay always covers a whole choghadiya, so trimming is rare. Rog, Kaal and Udveg are <b>not for new starts</b>; Chal (neutral) isn’t listed.</p>
 </section>
 
@@ -750,18 +750,20 @@ var CP = (function (CW) {
     function tr(x, why, cls) {
       var past = m.isToday && x.end <= state.now;
       return '<tr' + (past ? ' class="past"' : '') + '><td>' + slotLbl(x, D) + '</td><td><i class="dot" style="background:var(--' + x.quality + ')"></i><b>' + x.name + '</b>' +
-        (cls ? ' <span class="tag ' + cls + '">' + (cls === 'avoid' ? 'not for new starts' : 'spoiled') + '</span>' : '') + st(x) + '</td><td>' + rangeTxt(x.start, x.end, D.date) + ' <span class="note">· ' + dur(x.end - x.start) + '</span></td><td' + (cls ? ' class="ov"' : '') + '>' + why + '</td></tr>';
+        (cls ? ' <span class="tag ' + cls + '">' + (cls === 'avoid' ? 'not for new starts' : 'spoiled') + '</span>' : '') + st(x) +
+        (why ? '<div class="' + (cls ? 'ov' : 'note') + '" style="margin-top:2px;font-size:.8rem' + (cls ? ';color:var(--warn)' : '') + '">' + why + '</div>' : '') +
+        '</td><td style="white-space:nowrap">' + tm(x.start, D.date) + ' –<br>' + tm(x.end, D.date) + '<div class="note" style="margin:0">' + dur(x.end - x.start) + '</div></td></tr>';
     }
     function reasons(x) {
       return x.reasons.map(function (r) { return r.name + (r.whole ? ' covers the whole slot' : ' ' + rangeTxt(r.start, r.end, D.date)); }).join('; ');
     }
-    var h = '<tr class="sec"><td colspan="4">Clean windows (' + plan.clean.length + ')</td></tr>';
+    var h = '<tr class="sec"><td colspan="3">Clean windows (' + plan.clean.length + ')</td></tr>';
     h += plan.clean.length ? plan.clean.map(function (x) { return tr(x, x.trimmed ? 'Trimmed: clean part of ' + rangeTxt(x.slotStart, x.slotEnd, D.date) : 'No overlay', ''); }).join('') :
-      '<tr><td colspan="4" class="note">No clean window on this day.</td></tr>';
-    h += '<tr class="sec"><td colspan="4">Spoiled good slots (' + plan.spoiled.length + ')</td></tr>';
+      '<tr><td colspan="3" class="note">No clean window on this day.</td></tr>';
+    h += '<tr class="sec"><td colspan="3">Spoiled good slots (' + plan.spoiled.length + ')</td></tr>';
     h += plan.spoiled.length ? plan.spoiled.map(function (x) { return tr(x, reasons(x) + (x.keptParts.length ? ' · clean part kept above' : ''), 'spoiled'); }).join('') :
-      '<tr><td colspan="4" class="note">None.</td></tr>';
-    h += '<tr class="sec"><td colspan="4">Rog, Kaal, Udveg · not for new starts (' + plan.avoid.length + ')</td></tr>';
+      '<tr><td colspan="3" class="note">None.</td></tr>';
+    h += '<tr class="sec"><td colspan="3">Rog, Kaal, Udveg · not for new starts (' + plan.avoid.length + ')</td></tr>';
     h += plan.avoid.map(function (x) { return tr(x, x.reasons.length ? 'Also ' + reasons(x) : '', 'avoid'); }).join('');
     tb.innerHTML = h;
   }
