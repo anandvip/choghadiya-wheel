@@ -63,6 +63,10 @@ footer{margin-top:22px;font-size:.82rem;color:var(--muted);border-top:1px solid 
 footer p{margin:6px 0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .err{color:var(--warn)}
+tr.past td{opacity:.55}
+.tag{font-size:.72rem;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.now{border-color:var(--accent);color:var(--accent)}
+.tag.avoid{border-color:color-mix(in srgb,var(--warn) 45%,transparent);color:var(--warn)}
 </style>
 </head>
 <body>
@@ -102,6 +106,12 @@ footer p{margin:6px 0}
     <section id="active" class="card" aria-live="polite"></section>
   </div>
 </div>
+
+<section class="card" id="clearSec" style="margin-top:14px" aria-labelledby="clearTitle">
+  <h2 id="clearTitle">Clear slots today</h2>
+  <div style="overflow-x:auto"><table id="clearTbl"><thead><tr><th>#</th><th>Choghadiya</th><th>Time</th><th>Why</th></tr></thead><tbody></tbody></table></div>
+  <p class="note"><b>Clean</b> = Amrit, Shubh or Labh with no Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela or Kaal Ratri, at least 20 minutes. <b>Partial overlaps are trimmed:</b> the slot is listed as spoiled, and its clean part (20 minutes or more) is listed as a clean window marked <i>trimmed</i>. With the classical eighths an overlay always covers a whole choghadiya, so trimming is rare. Rog, Kaal and Udveg are <b>not for new starts</b>; Chal (neutral) isn’t listed.</p>
+</section>
 
 <section class="card" style="margin-top:14px">
   <h2 id="tableTitle">All 16 slots</h2>
@@ -298,6 +308,65 @@ var CW = (function () {
 })();
 if (typeof module !== 'undefined') module.exports = CW;
 /* ENGINE:END */
+/* PLANNER:START — pure slot planning for "Clear slots" and the focus tasks (no DOM, uses CW).
+   test/planner.test.mjs extracts the code between these two markers and runs it in Node. */
+var CP = (function (CW) {
+  var MIN = 60000, EPS = 1000; // overlaps under a second are float rounding at shared eighth boundaries, not overlaps
+  var AVOID = ['Rog', 'Kaal', 'Udveg'];
+  // overlay windows [start, end, name] that touch [a0, a1], clipped to it
+  function overlaps(a0, a1, bad) {
+    var out = [];
+    bad.forEach(function (b) {
+      var s = Math.max(a0, b[0]), e = Math.min(a1, b[1]);
+      if (e - s > EPS) out.push({ name: b[2], start: s, end: e, whole: s <= a0 + EPS && e >= a1 - EPS });
+    });
+    return out.sort(function (x, y) { return x.start - y.start; });
+  }
+  // [a0, a1] minus the overlay windows
+  function cleanParts(a0, a1, bad) {
+    var pieces = [[a0, a1]];
+    bad.forEach(function (b) {
+      var nw = [];
+      pieces.forEach(function (p) {
+        if (b[1] <= p[0] + EPS || b[0] >= p[1] - EPS) { nw.push(p); return; }
+        if (b[0] - p[0] > EPS) nw.push([p[0], b[0]]);
+        if (p[1] - b[1] > EPS) nw.push([b[1], p[1]]);
+      });
+      pieces = nw;
+    });
+    return pieces;
+  }
+  // Classify slots against the overlays of the given days.
+  // Rule: a good slot (Amrit/Shubh/Labh) with no overlay is clean. A good slot that an overlay touches is spoiled
+  // (listed with its reasons); if the overlay covers only part of it, the clean remainder of at least minMinutes
+  // is ALSO listed as a clean window marked trimmed. Rog/Kaal/Udveg are "not for new starts". Chal is neutral.
+  function plan(days, slots, minMinutes) {
+    var min = (minMinutes == null ? 20 : minMinutes) * MIN, bad = [];
+    days.forEach(function (D) { if (D) bad = bad.concat(CW.badIntervals(D)); });
+    var res = { clean: [], spoiled: [], avoid: [], neutral: [] };
+    slots.forEach(function (s) {
+      var ov = overlaps(s.start, s.end, bad), base = { name: s.name, quality: s.quality, part: s.part, n: s.n, date: s.date, slotStart: s.start, slotEnd: s.end };
+      var mk = function (o) { var r = {}; for (var k in base) r[k] = base[k]; for (var j in o) r[j] = o[j]; return r; };
+      if (CW.GOOD_CHOG.indexOf(s.name) >= 0) {
+        if (!ov.length) {
+          if (s.end - s.start >= min) res.clean.push(mk({ start: s.start, end: s.end, trimmed: false }));
+          else res.spoiled.push(mk({ start: s.start, end: s.end, reasons: [{ name: 'Shorter than ' + (min / MIN) + ' min', start: s.start, end: s.end, whole: true }], keptParts: [] }));
+          return;
+        }
+        var kept = cleanParts(s.start, s.end, bad).filter(function (p) { return p[1] - p[0] >= min; });
+        res.spoiled.push(mk({ start: s.start, end: s.end, reasons: ov, keptParts: kept }));
+        kept.forEach(function (p) { res.clean.push(mk({ start: p[0], end: p[1], trimmed: true })); });
+      } else if (AVOID.indexOf(s.name) >= 0) res.avoid.push(mk({ start: s.start, end: s.end, reasons: ov }));
+      else res.neutral.push(mk({ start: s.start, end: s.end, reasons: ov }));
+    });
+    ['clean', 'spoiled', 'avoid', 'neutral'].forEach(function (k) { res[k].sort(function (a, b) { return a.start - b.start; }); });
+    return res;
+  }
+  // stable key for a clean window (used to assign tasks)
+  function key(c) { return c.date + '|' + c.part + c.n + '|' + Math.round(c.start / 1000); }
+  return { plan: plan, overlaps: overlaps, cleanParts: cleanParts, key: key, AVOID: AVOID };
+})(CW);
+/* PLANNER:END */
 // ===== UI =====
 (function () {
   'use strict';
@@ -565,7 +634,42 @@ if (typeof module !== 'undefined') module.exports = CW;
     $('tbl').tBodies[0].innerHTML = rows;
     requestPaint();
   }
-  function refresh() { compute(); updateDom(); }
+
+  // ---------- clear slots (selected Vedic day + the early hours of the previous night) ----------
+  var plan = null;
+  function rangeTxt(a, b, ref) { return tm(a, ref) + ' – ' + tm(b, ref); }
+  function slotLbl(x, D) { return (x.part === 'day' ? 'D' : 'N') + x.n + (x.date !== D.date ? ' <span class="note">(' + CW.WEEKDAY[new Date(x.date + 'T00:00:00Z').getUTCDay()].slice(0, 3) + ' night)</span>' : ''); }
+  function renderClear(m) {
+    var tb = $('clearTbl').tBodies[0];
+    if (!m.ok) { plan = null; tb.innerHTML = ''; return; }
+    var D = m.D, tail = m.Dp ? m.Dp.slots.filter(function (x) { return x.part === 'night' && x.end > D.midnight; }) : [];
+    plan = CP.plan([m.Dp, D, m.Dn], tail.concat(D.slots));
+    var dateLong = fmtDL.format(Date.UTC(state.sel.y, state.sel.m - 1, state.sel.d));
+    $('clearTitle').textContent = (m.isToday ? 'Clear slots today · ' : 'Clear slots · ') + D.weekdayName + ', ' + dateLong;
+    function st(x) {
+      if (!m.isToday) return '';
+      if (x.end <= state.now) return ' <span class="tag">ended</span>';
+      return x.start <= state.now ? ' <span class="tag now">now</span>' : '';
+    }
+    function tr(x, why, cls) {
+      var past = m.isToday && x.end <= state.now;
+      return '<tr' + (past ? ' class="past"' : '') + '><td>' + slotLbl(x, D) + '</td><td><i class="dot" style="background:var(--' + x.quality + ')"></i><b>' + x.name + '</b>' +
+        (cls ? ' <span class="tag ' + cls + '">' + (cls === 'avoid' ? 'not for new starts' : 'spoiled') + '</span>' : '') + st(x) + '</td><td>' + rangeTxt(x.start, x.end, D.date) + ' <span class="note">· ' + dur(x.end - x.start) + '</span></td><td' + (cls ? ' class="ov"' : '') + '>' + why + '</td></tr>';
+    }
+    function reasons(x) {
+      return x.reasons.map(function (r) { return r.name + (r.whole ? ' covers the whole slot' : ' ' + rangeTxt(r.start, r.end, D.date)); }).join('; ');
+    }
+    var h = '<tr class="sec"><td colspan="4">Clean windows (' + plan.clean.length + ')</td></tr>';
+    h += plan.clean.length ? plan.clean.map(function (x) { return tr(x, x.trimmed ? 'Trimmed: clean part of ' + rangeTxt(x.slotStart, x.slotEnd, D.date) : 'No overlay', ''); }).join('') :
+      '<tr><td colspan="4" class="note">No clean window on this day.</td></tr>';
+    h += '<tr class="sec"><td colspan="4">Spoiled good slots (' + plan.spoiled.length + ')</td></tr>';
+    h += plan.spoiled.length ? plan.spoiled.map(function (x) { return tr(x, reasons(x) + (x.keptParts.length ? ' · clean part kept above' : ''), 'spoiled'); }).join('') :
+      '<tr><td colspan="4" class="note">None.</td></tr>';
+    h += '<tr class="sec"><td colspan="4">Rog, Kaal, Udveg · not for new starts (' + plan.avoid.length + ')</td></tr>';
+    h += plan.avoid.map(function (x) { return tr(x, x.reasons.length ? 'Also ' + reasons(x) : '', 'avoid'); }).join('');
+    tb.innerHTML = h;
+  }
+  function refresh() { compute(); updateDom(); renderClear(model); }
 
   // ---------- controls ----------
   function setDate(o) { state.sel = o; state.todayMode = CW.iso(o) === CW.iso(locToday()); refresh(); }
@@ -615,7 +719,7 @@ if (typeof module !== 'undefined') module.exports = CW;
   setInterval(refresh, 30000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   // expose for testing
-  window.__cw = { model: function () { return model; }, mode: function () { return HIC ? 'html-in-canvas' : 'fallback'; } };
+  window.__cw = { model: function () { return model; }, plan: function () { return plan; }, mode: function () { return HIC ? 'html-in-canvas' : 'fallback'; } };
 })();
 </script>
 </body>
