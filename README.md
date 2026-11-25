@@ -14,6 +14,18 @@ A one-page choghadiya wheel. It reads your device's clock and shows which chogha
 - Below the wheel is a table of all 16 slots, with their overlays, and a **next clean slot** line.
 - Times are shown in your device's time zone, rounded to the nearest minute, as Drik Panchang does. The page refreshes itself every 30 seconds and works offline once loaded.
 
+## Clear slots and focus tasks
+
+Below the wheel, two more sections help you plan the selected day (sunrise to next sunrise, plus the early hours that still belong to the previous night).
+
+- **Clear slots today** lists every Amrit, Shubh and Labh window that no Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela or Kaal Ratri touches, for both day and night choghadiyas. It uses the same engine and place as the wheel, so `?date=`, `&lat=&lon=` and **Use my location** apply here too.
+- **Spoiled good slots** are the Amrit, Shubh and Labh slots that an overlay touches, each with the reason (for example "Yamaganda covers the whole slot").
+- **Rog, Kaal and Udveg** slots are listed and marked **not for new starts**. Chal is neutral and isn't listed.
+- **Partial overlaps are trimmed.** If an overlay covers only part of a good slot, the slot is listed as spoiled with the overlap, and its clean remainder is listed as a clean window marked *trimmed*, if it lasts at least 20 minutes (the same rule as the **next clean slot** line and the API). With the classical eighths an overlay always covers a whole choghadiya, so in practice good slots are either fully clean or fully spoiled.
+- **Focus tasks.** Add your own short-term or long-term tasks and assign each to a clean window of the date you're viewing (use ◀ / ▶ to plan another day). Mark a task **Done**, **Skipped** or **Moved**, and add a short note. Reassigning a task to another window marks it moved and remembers where it came from.
+- **Privacy.** Tasks are kept only in this browser's `localStorage` (key `cw.focusTasks.v1`, and `cw.focusPrefs.v1` for the reminder setting). They never go into the repo, the link, analytics or any server, and the page makes no network calls. A new visitor, or another browser, sees an empty list. Clearing the site's data deletes them.
+- **Calendar handoff is always your action.** **Export .ics** downloads a calendar file with one event per assigned open or moved task, with a reminder 15 minutes before by default (change the minutes next to the button). Times are written in UTC, so any calendar shows them correctly in IST. **Copy for calendar team** copies the same list as plain text with IST times. Nothing syncs on its own.
+
 ## API for bots
 
 Every date from 2026-11-16 to 2027-12-31 has a ready-made file for **Pipli**, so a bot can read today's choghadiya without opening a browser:
@@ -63,7 +75,7 @@ The logic is a direct port of the Swiss Ephemeris panchang engine used for the d
 - **The engine, on 12 dates from 2025 to 2030** (including Saturdays, 21 June and 21 December). Sunrise, sunset, all 16 slot boundaries and every overlay agreed within 0.13 minutes, with no name or overlay mismatches.
 - **Drik Panchang's choghadiya tables for Thanesar on 1, 2 and 4 Nov 2026.** All names and Vela/Kaal Ratri markers matched, and times agreed within 0.6 minutes. Drik shows whole minutes.
 
-- **Automated tests** (`npm test`, no dependencies): the engine against frozen Swiss Ephemeris fixtures for 12 dates (sunrise, sunset and slot boundaries within 1 minute), every overlay against the table above, clean slots never overlapping an overlay, and every API file against a fresh engine run. Run them with `npm test` before pushing.
+- **Automated tests** (`npm test`, no dependencies): the engine against frozen Swiss Ephemeris fixtures for 12 dates (sunrise, sunset and slot boundaries within 1 minute), every overlay against the table above, clean slots never overlapping an overlay, every API file against a fresh engine run, and the clear-slots overlap rule and `.ics` export (`test/planner.test.mjs`). Run them with `npm test` before pushing.
 
 ## Sources
 
