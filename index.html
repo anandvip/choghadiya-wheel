@@ -411,7 +411,8 @@ var CP = (function (CW) {
   function istParts(t) { var d = new Date(Math.round(t / MIN) * MIN + IST); return { y: d.getUTCFullYear(), mo: d.getUTCMonth(), d: d.getUTCDate(), wd: d.getUTCDay(), hm: d.toISOString().slice(11, 16) }; }
   function istHM(t) { return istParts(t).hm; }
   function istDate(t) { var p = istParts(t); return CW.WEEKDAY[p.wd].slice(0, 3) + ' ' + p.d + ' ' + MON[p.mo] + ' ' + p.y; }
-  function icsTime(t) { return new Date(Math.round(t / 1000) * 1000).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); } // UTC, e.g. 20261125T103500Z
+  // UTC, rounded to the nearest minute like every time on the page, e.g. 20261125T103500Z
+  function icsTime(t) { return new Date(Math.round(t / MIN) * MIN).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); }
   function icsText(x) { return String(x).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n'); }
   // fold to 75 octets per line (RFC 5545 3.1), never splitting a UTF-8 character
   function fold(line) {
