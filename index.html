@@ -137,6 +137,17 @@ tr.past td{opacity:.55}
   </form>
   <ul id="taskList" class="tasks"></ul>
   <p id="taskEmpty" class="note">No tasks yet.</p>
+  <div class="bar" style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+    <label for="alarmMin" class="note" style="margin:0">Reminder</label>
+    <input id="alarmMin" type="number" min="0" max="1440" step="5" value="15" style="width:5.5em">
+    <span class="note" style="margin:0">min before</span>
+    <button id="exportIcs" type="button">Export .ics</button>
+    <button id="copyCal" type="button">Copy for calendar team</button>
+  </div>
+  <p class="note">Exports include assigned tasks that are open or moved. Calendar times are written in UTC, so they show correctly in IST. Nothing syncs on its own: the file and the text only leave this page when you click.</p>
+  <label class="sr" for="calText">Text for the calendar team</label>
+  <textarea id="calText" readonly rows="6" style="width:100%;display:none;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace"></textarea>
+  <p id="exportMsg" class="note" role="status"></p>
 </section>
 
 <section class="card" style="margin-top:14px">
@@ -390,7 +401,65 @@ var CP = (function (CW) {
   }
   // stable key for a clean window (used to assign tasks)
   function key(c) { return c.date + '|' + c.part + c.n + '|' + Math.round(c.start / 1000); }
-  return { plan: plan, overlaps: overlaps, cleanParts: cleanParts, key: key, AVOID: AVOID };
+  // ---- calendar export (only ever run on an explicit click) ----
+  var IST = 330 * MIN;
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function exportable(tasks) {
+    return tasks.filter(function (t) { return t.slot && (t.status === 'open' || t.status === 'moved' || !t.status); })
+      .slice().sort(function (a, b) { return a.slot.start - b.slot.start; });
+  }
+  function istParts(t) { var d = new Date(Math.round(t / MIN) * MIN + IST); return { y: d.getUTCFullYear(), mo: d.getUTCMonth(), d: d.getUTCDate(), wd: d.getUTCDay(), hm: d.toISOString().slice(11, 16) }; }
+  function istHM(t) { return istParts(t).hm; }
+  function istDate(t) { var p = istParts(t); return CW.WEEKDAY[p.wd].slice(0, 3) + ' ' + p.d + ' ' + MON[p.mo] + ' ' + p.y; }
+  function icsTime(t) { return new Date(Math.round(t / 1000) * 1000).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); } // UTC, e.g. 20261125T103500Z
+  function icsText(x) { return String(x).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n'); }
+  // fold to 75 octets per line (RFC 5545 3.1), never splitting a UTF-8 character
+  function fold(line) {
+    var out = [], cur = '', n = 0;
+    for (var i = 0; i < line.length; i++) {
+      var c = line.charCodeAt(i), ch = line[i];
+      if (c >= 0xD800 && c <= 0xDBFF && i + 1 < line.length) { ch += line[++i]; }
+      var b = c < 0x80 ? 1 : c < 0x800 ? 2 : ch.length === 2 ? 4 : 3;
+      if (n + b > 75) { out.push(cur); cur = ' '; n = 1; }
+      cur += ch; n += b;
+    }
+    out.push(cur);
+    return out.join('\r\n');
+  }
+  function slotLine(sl) { return sl.name + ' choghadiya (' + (sl.part === 'day' ? 'day ' : 'night ') + sl.n + (sl.trimmed ? ', trimmed' : '') + ')'; }
+  // opts: { alarmMin (default 15), now (ms) }
+  function ics(tasks, opts) {
+    opts = opts || {};
+    var al = opts.alarmMin == null ? 15 : Math.max(0, Math.min(1440, Math.round(opts.alarmMin))), now = opts.now || Date.now();
+    var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//anandvip//Choghadiya Wheel focus tasks//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    exportable(tasks).forEach(function (t) {
+      var sl = t.slot;
+      L.push('BEGIN:VEVENT', 'UID:' + icsText(t.id + '-' + icsTime(sl.start)) + '@choghadiya-wheel', 'DTSTAMP:' + icsTime(now),
+        'DTSTART:' + icsTime(sl.start), 'DTEND:' + icsTime(sl.end), 'SUMMARY:' + icsText(t.title),
+        'DESCRIPTION:' + icsText(slotLine(sl) + ', ' + istHM(sl.start) + '–' + istHM(sl.end) + ' IST' + (sl.place ? ', ' + sl.place : '') + '.' +
+          (t.term === 'long' ? ' Long-term task.' : ' Short-term task.') + (t.note ? '\nNote: ' + t.note : '')),
+        'CATEGORIES:Focus', 'TRANSP:OPAQUE',
+        'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsText(t.title), 'TRIGGER:-PT' + al + 'M', 'END:VALARM', 'END:VEVENT');
+    });
+    L.push('END:VCALENDAR');
+    return L.map(fold).join('\r\n') + '\r\n';
+  }
+  function calText(tasks, opts) {
+    opts = opts || {};
+    var al = opts.alarmMin == null ? 15 : opts.alarmMin, now = opts.now || Date.now(), list = exportable(tasks);
+    var L = ['Focus tasks for the calendar · times in IST (Asia/Kolkata)', 'Exported ' + istDate(now) + ' ' + istHM(now) + ' IST from the Choghadiya Wheel. Nothing has been added to any calendar yet.', ''];
+    if (!list.length) L.push('(No assigned open or moved tasks.)');
+    list.forEach(function (t, i) {
+      var sl = t.slot;
+      L.push((i + 1) + '. ' + istDate(sl.start) + ', ' + istHM(sl.start) + '–' + istHM(sl.end) + ' IST · ' + slotLine(sl) + (sl.place ? ' · ' + sl.place : ''));
+      L.push('   Task: ' + t.title + ' (' + (t.term === 'long' ? 'long-term' : 'short-term') + (t.status === 'moved' ? ', moved' : '') + ')');
+      if (t.note) L.push('   Note: ' + t.note);
+      L.push('   Reminder: ' + al + ' min before');
+    });
+    return L.join('\n') + '\n';
+  }
+  return { plan: plan, overlaps: overlaps, cleanParts: cleanParts, key: key, AVOID: AVOID,
+    exportable: exportable, ics: ics, calText: calText, fold: fold, icsText: icsText, icsTime: icsTime, istHM: istHM };
 })(CW);
 /* PLANNER:END */
 // ===== UI =====
@@ -760,6 +829,27 @@ var CP = (function (CW) {
     saveTasks(); renderTasks();
     if (a === 'moved') { var li = $('taskList').querySelector('li[data-id="' + t.id + '"] select'); if (li) li.focus(); }
   });
+
+  // ---------- calendar handoff: explicit clicks only ----------
+  var PKEY = 'cw.focusPrefs.v1';
+  try { var pr = JSON.parse(localStorage.getItem(PKEY) || '{}'); if (pr && pr.alarmMin >= 0 && pr.alarmMin <= 1440) $('alarmMin').value = pr.alarmMin; } catch (e) {}
+  function alarmMin() { var v = parseInt($('alarmMin').value, 10); return isNaN(v) ? 15 : Math.max(0, Math.min(1440, v)); }
+  $('alarmMin').onchange = function () { this.value = alarmMin(); try { localStorage.setItem(PKEY, JSON.stringify({ alarmMin: alarmMin() })); } catch (e) {} };
+  $('exportIcs').onclick = function () {
+    var n = CP.exportable(tasks).length, msg = $('exportMsg');
+    if (!n) { msg.textContent = 'Assign at least one open task to a clean window first.'; return; }
+    var url = URL.createObjectURL(new Blob([CP.ics(tasks, { alarmMin: alarmMin() })], { type: 'text/calendar;charset=utf-8' }));
+    var a = document.createElement('a'); a.href = url; a.download = 'focus-tasks-' + CW.iso(locToday()) + '.ics';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    msg.textContent = 'Downloaded ' + n + ' event' + (n > 1 ? 's' : '') + ' with a reminder ' + alarmMin() + ' min before. Open the file in your calendar app to add them.';
+  };
+  $('copyCal').onclick = function () {
+    var txt = CP.calText(tasks, { alarmMin: alarmMin() }), ta = $('calText'), msg = $('exportMsg');
+    ta.value = txt; ta.style.display = 'block';
+    var done = function () { msg.textContent = 'Copied. Paste it wherever you send it; nothing was sent from here.'; };
+    var manual = function () { ta.focus(); ta.select(); msg.textContent = 'Select the text above and copy it.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, manual); else manual();
+  };
   window.addEventListener('storage', function (e) { if (e.key === TKEY) { tasks = loadTasks(); renderTasks(); } });
   function refresh() {
     compute(); updateDom(); renderClear(model);
