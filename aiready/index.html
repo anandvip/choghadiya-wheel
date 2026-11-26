@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:,">
+<title>Choghadiya Wheel, AI-ready — live active slot, Vaar Vela, Kaal Vela, Kaal Ratri</title>
+<meta name="description" content="A choghadiya wheel that uses your device clock to show the current active slot, with Vaar Vela, Kaal Vela, Kaal Ratri, Rahu Kaal, Yamaganda and Gulika. Calculated in your browser, works offline.">
+<!-- For AI agents: what this Vedic Panchang tool does, and where to read it without running JavaScript -->
+<meta name="ai-summary" content="Vedic Panchang choghadiya (muhurat) calculator. In WebMCP-capable browsers it registers read-only tools: get_current_choghadiya, get_choghadiya_for_date, find_next_clean_muhurat, plus show_on_wheel to point the visible wheel at a moment. Without JavaScript, read api/YYYY-MM-DD.json or .txt for Pipli, Kurukshetra (IST).">
+<link rel="alternate" type="application/json" title="Choghadiya API index (Pipli, IST)" href="../api/index.json">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Choghadiya Wheel",
+  "applicationCategory": "ReferenceApplication",
+  "operatingSystem": "Any (runs in the browser, works offline)",
+  "isAccessibleForFree": true,
+  "about": ["Vedic Panchang", "Choghadiya", "Muhurat", "Rahu Kaal", "Yamaganda", "Gulika", "Vaar Vela", "Kaal Vela", "Kaal Ratri"],
+  "description": "Vedic Panchang muhurat timekeeping. Splits sunrise to sunset and sunset to next sunrise into 8 choghadiya each (Amrit, Shubh, Labh good; Chal neutral; Udveg, Kaal, Rog avoid), overlays Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela and Kaal Ratri, and marks clean Amrit/Shubh/Labh windows of 20+ minutes. A Vedic day runs sunrise to sunrise. Default place Pipli, Kurukshetra, India (29.9775 N, 76.8928 E), IST. Agents in WebMCP-capable browsers can call the read-only tools get_current_choghadiya, get_choghadiya_for_date and find_next_clean_muhurat, and show_on_wheel to point the visible wheel at a moment. Agents that only fetch HTML can read the static files below.",
+  "spatialCoverage": { "@type": "Place", "name": "Pipli, Kurukshetra, Haryana, India", "geo": { "@type": "GeoCoordinates", "latitude": 29.9775, "longitude": 76.8928 } },
+  "potentialAction": [
+    { "@type": "ReadAction", "name": "Choghadiya for a date (JSON)", "target": "https://wheel.vipulanand.in/api/{date}.json" },
+    { "@type": "ReadAction", "name": "Choghadiya for a date (text)", "target": "https://wheel.vipulanand.in/api/{date}.txt" },
+    { "@type": "ViewAction", "name": "Open the wheel for a date and place", "target": "https://wheel.vipulanand.in/aiready/?date={date}&lat={lat}&lon={lon}" }
+  ]
+}
+</script>
+<style>
+:root{--bg:#f7f5f0;--fg:#1c1917;--muted:#6b6459;--card:#ffffff;--line:#e4ded3;--accent:#b45309;--warn:#b91c1c;--chip:#fef2f2;
+--best:#15803d;--good:#22a355;--neutral:#e0a100;--bad:#dc4a3d;--night:rgba(15,23,42,.30);--ring:#efe9de}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1115;--fg:#ece8e1;--muted:#a39d93;--card:#181b21;--line:#2a2f38;--accent:#f59e0b;--warn:#f87171;--chip:#3a1a1a;--ring:#1f232b}}
+:root[data-theme=dark]{--bg:#0f1115;--fg:#ece8e1;--muted:#a39d93;--card:#181b21;--line:#2a2f38;--accent:#f59e0b;--warn:#f87171;--chip:#3a1a1a;--ring:#1f232b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+main{max-width:980px;margin:0 auto;padding:12px 14px 40px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px}
+h1{font-size:1.25rem;margin:0}
+h2{font-size:1.05rem;margin:0 0 8px}
+.badge{font-size:.72rem;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);white-space:nowrap}
+.badge.hic{border-color:#15803d;color:#15803d}
+button,input[type=date],input[type=text],input[type=number],select,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 11px;min-height:38px}
+button{cursor:pointer}button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.bar input[type=date]{flex:1 1 150px;min-width:0}
+.loc{font-size:.85rem;color:var(--muted);margin:2px 0 8px}
+.loc b{color:var(--fg);font-weight:600}
+.layout{display:grid;gap:14px}
+@media (min-width:860px){.layout{grid-template-columns:minmax(0,560px) minmax(0,1fr);align-items:start}}
+.wheelwrap{position:relative;width:100%;max-width:560px;margin:0 auto}
+#wheel{display:block;width:100%;height:auto;touch-action:manipulation}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+/* centre card: drawn into the canvas (HTML-in-Canvas) or floated over it (fallback) */
+#centre{box-sizing:border-box;text-align:center;color:var(--fg);background:var(--card);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;line-height:1.2}
+#centre .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#centre .n{font-size:22px;font-weight:700;margin:2px 0}
+#centre .q{font-size:11px;font-weight:600}
+#centre .t{font-size:11px;color:var(--muted);margin-top:2px}
+#centre .w{font-size:10px;font-weight:700;color:var(--warn);margin-top:3px}
+.wheelwrap.overlay #centre{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.lbl{display:block;width:max-content;text-align:center;font:600 12px/1.1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.lbl small{display:block;font-size:9px;font-weight:700;opacity:.95}
+.qbest{color:var(--best)}.qgood{color:var(--good)}.qneutral{color:var(--neutral)}.qbad{color:var(--bad)}
+#active .name{font-size:1.6rem;font-weight:700;line-height:1.1}
+#active .row{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;margin:4px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{font-size:.8rem;padding:3px 9px;border-radius:999px;background:var(--chip);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.chip.ok{background:transparent;color:var(--best);border-color:color-mix(in srgb,var(--best) 40%,transparent)}
+.note{font-size:.85rem;color:var(--muted);margin-top:6px}
+#clean{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+tr.sec td{background:var(--ring);font-weight:600;font-size:.8rem;color:var(--muted)}
+tr.cur td{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+td.ov{color:var(--warn);font-size:.8rem}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem;color:var(--muted);margin:8px 0 0}
+footer{margin-top:22px;font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+footer p{margin:6px 0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.err{color:var(--warn)}
+.tasks{list-style:none;margin:8px 0 0;padding:0}
+.task{border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0}
+.task .tt{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.task .tt b{overflow-wrap:anywhere}
+.task.done .tt b{text-decoration:line-through;color:var(--muted)}
+.task .bar select{flex:1 1 200px;min-width:0}
+.task input.tnote{width:100%}
+.tag.st-done{border-color:var(--best);color:var(--best)}
+.tag.st-skipped{color:var(--muted)}
+.tag.st-moved{border-color:var(--accent);color:var(--accent)}
+button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--card))}
+#taskForm input[type=text]{flex:1 1 220px;min-width:0}
+tr.past td{opacity:.55}
+.tag{font-size:.72rem;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.now{border-color:var(--accent);color:var(--accent)}
+.tag.avoid{border-color:color-mix(in srgb,var(--warn) 45%,transparent);color:var(--warn)}
+/* AI-ready preview: interactive wheel and tools panel */
+#wheel{touch-action:none;cursor:crosshair}
+#wheel:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:50%}
+.tip{position:absolute;pointer-events:none;z-index:5;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:.78rem;line-height:1.3;box-shadow:0 2px 8px rgba(0,0,0,.18);white-space:nowrap;display:none}
+.tip b{font-weight:700}
+.pickbar{display:none;justify-content:center;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 0}
+.pickbar.on{display:flex}
+#tbl tbody tr[data-t]{cursor:pointer}
+#tbl tbody tr[data-t]:hover td{background:var(--ring)}
+pre.out{white-space:pre-wrap;word-break:break-word;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--ring);padding:8px 10px;border-radius:8px;max-height:340px;overflow:auto;margin:6px 0}
+#aiSec .bar button{font-size:.88rem}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Choghadiya Wheel <span class="badge hic" title="Preview edition with WebMCP tools and an interactive wheel">AI-ready preview</span></h1>
+  <div class="bar" style="margin:0">
+    <span id="mode" class="badge" title="Rendering mode">detecting…</span>
+    <button id="theme" type="button" aria-label="Switch light or dark theme">◐ Theme</button>
+  </div>
+</header>
+
+<div class="bar" role="group" aria-label="Choose date">
+  <button id="prev" type="button" aria-label="Previous day">◀</button>
+  <input id="date" type="date" aria-label="Date">
+  <button id="next" type="button" aria-label="Next day">▶</button>
+  <button id="today" type="button" class="primary">Today</button>
+</div>
+<div class="loc"><span id="locText"></span> · <button id="geo" type="button" style="min-height:30px;padding:3px 9px;font-size:.82rem">Use my location</button> <button id="pipli" type="button" style="min-height:30px;padding:3px 9px;font-size:.82rem;display:none">Back to Pipli</button>
+  <div id="geoMsg" class="note" role="status"></div></div>
+
+<div class="layout">
+  <div>
+    <div class="wheelwrap" id="wrap">
+      <canvas id="wheel" width="560" height="560" role="img" tabindex="0" aria-label="Choghadiya wheel"></canvas>
+      <div id="tip" class="tip" role="tooltip"></div>
+    </div>
+    <p id="wheelCap" class="note" style="text-align:center;margin:4px 0 0"></p>
+    <div id="pickBar" class="pickbar" role="status"><span id="pickTxt" class="note" style="margin:0"></span><button id="backNow" type="button">Back to now</button></div>
+    <p class="note" style="text-align:center;margin:2px 0 0">Tap or drag on the wheel to look at any moment, or tap a row in the table. With the wheel focused, ↑ / ↓ step through the slots and Esc comes back to now.</p>
+    <div class="legend" aria-hidden="true">
+      <span><i class="dot" style="background:var(--best)"></i>Amrit (best)</span>
+      <span><i class="dot" style="background:var(--good)"></i>Shubh, Labh (good)</span>
+      <span><i class="dot" style="background:var(--neutral)"></i>Chal (neutral)</span>
+      <span><i class="dot" style="background:var(--bad)"></i>Udveg, Kaal, Rog (avoid)</span>
+      <span>Darker = night · red inner arc = Vela / Kaal Ratri / Rahu etc.</span>
+    </div>
+  </div>
+  <div>
+    <section id="active" class="card" aria-live="polite"></section>
+  </div>
+</div>
+
+<section class="card" id="clearSec" style="margin-top:14px" aria-labelledby="clearTitle">
+  <h2 id="clearTitle">Clear slots today</h2>
+  <div style="overflow-x:auto"><table id="clearTbl"><thead><tr><th>#</th><th>Choghadiya · why</th><th>Time</th></tr></thead><tbody></tbody></table></div>
+  <p class="note"><b>Clean</b> = Amrit, Shubh or Labh with no Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela or Kaal Ratri, at least 20 minutes. <b>Partial overlaps are trimmed:</b> the slot is listed as spoiled, and its clean part (20 minutes or more) is listed as a clean window marked <i>trimmed</i>. With the classical eighths an overlay always covers a whole choghadiya, so trimming is rare. Rog, Kaal and Udveg are <b>not for new starts</b>; Chal (neutral) isn’t listed.</p>
+  <p class="note" style="margin-top:4px"><a href="https://mind.vipulanand.in/watcher/" style="color:var(--accent)">Back on track: the watcher's junction</a></p>
+</section>
+
+<section class="card" id="tasksSec" style="margin-top:14px" aria-labelledby="tasksTitle">
+  <h2 id="tasksTitle">Focus tasks</h2>
+  <p class="note" style="margin-top:0">Add your own tasks and give each one a clean window from the list above. Use ◀ / ▶ to plan another day. Saved <b>only in this browser</b> (localStorage): never in the link, never sent anywhere, and a new visitor sees an empty list.</p>
+  <form id="taskForm" class="bar" autocomplete="off">
+    <label class="sr" for="taskTitle">New task</label>
+    <input id="taskTitle" type="text" maxlength="120" placeholder="Add a task…" required>
+    <label class="sr" for="taskTerm">Term</label>
+    <select id="taskTerm"><option value="short">Short-term</option><option value="long">Long-term</option></select>
+    <button type="submit" class="primary">Add</button>
+  </form>
+  <ul id="taskList" class="tasks"></ul>
+  <p id="taskEmpty" class="note">No tasks yet.</p>
+  <div class="bar" style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+    <label for="alarmMin" class="note" style="margin:0">Reminder</label>
+    <input id="alarmMin" type="number" min="0" max="1440" step="5" value="15" style="width:5.5em">
+    <span class="note" style="margin:0">min before</span>
+    <button id="exportIcs" type="button">Export .ics</button>
+    <button id="copyCal" type="button">Copy for calendar team</button>
+  </div>
+  <p class="note">Exports include assigned tasks that are open or moved. Calendar times are written in UTC, so they show correctly in IST. Nothing syncs on its own: the file and the text only leave this page when you click.</p>
+  <label class="sr" for="calText">Text for the calendar team</label>
+  <textarea id="calText" readonly rows="6" style="width:100%;display:none;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace"></textarea>
+  <p id="exportMsg" class="note" role="status"></p>
+</section>
+
+<section class="card" id="aiSec" style="margin-top:14px" aria-labelledby="aiTitle">
+  <h2 id="aiTitle">Ask the wheel · AI tools</h2>
+  <p class="note" style="margin-top:0" id="aiStatus">Checking for WebMCP…</p>
+  <div class="bar" role="group" aria-label="Run a tool">
+    <button type="button" data-tool="get_current_choghadiya">Choghadiya at the needle</button>
+    <button type="button" data-tool="get_choghadiya_for_date" data-args='{"onlyClean":true}'>Clean windows this Vedic day</button>
+    <button type="button" data-tool="find_next_clean_muhurat" data-args='{"count":3}'>Next 3 clean windows</button>
+  </div>
+  <p id="aiSummary" role="status" style="margin:8px 0 2px;font-weight:600"></p>
+  <pre id="aiOut" class="out" hidden></pre>
+  <p class="note">These buttons run the same read-only tools that an AI agent can call on this page through WebMCP, with the date, time and place the wheel shows. They answer from this page's own calculations, offline, and never read your focus tasks or ask for your location. A fourth tool, <code>show_on_wheel</code>, lets an agent point this wheel at the moment it is talking about.</p>
+</section>
+
+<section class="card" style="margin-top:14px">
+  <h2 id="tableTitle">All 16 slots</h2>
+  <div style="overflow-x:auto"><table id="tbl"><thead><tr><th>#</th><th>Choghadiya</th><th>Start</th><th>End</th><th>Overlays</th></tr></thead><tbody></tbody></table></div>
+  <p class="note">Abbreviations on the wheel: VV Vaar Vela · KV Kaal Vela · KR Kaal Ratri · RK Rahu Kaal · YG Yamaganda · GK Gulika. A <b>clean slot</b> is Amrit, Shubh or Labh with none of these overlays (at least 20 minutes). Chal is neutral and not counted as clean.</p>
+</section>
+
+<footer>
+  <p><b>For reference only; calculated, not scraped.</b> Choghadiya is a traditional timing guide, not advice. Times can differ by a minute or two from printed panchangs because of rounding, location and horizon.</p>
+  <p><b>Method.</b> Sunrise and sunset are calculated in your browser for the apparent upper limb of the Sun with standard refraction (the Drik Panchang convention), using the NOAA/Meeus solar formulas. Day (sunrise→sunset) and night (sunset→next sunrise) are each split into 8 equal choghadiyas, named by the weekday lord in the hora order Sun, Venus, Mercury, Moon, Saturn, Jupiter, Mars → Udveg, Chal, Labh, Amrit, Kaal, Shubh, Rog. Vaar Vela, Kaal Vela (day eighths), Kaal Ratri (night eighths; two on Saturday), Rahu Kaal, Yamaganda and Gulika follow the same eighths. A Vedic day runs sunrise to sunrise, so the hours before sunrise belong to the previous day’s night. Ported from the Swiss-Ephemeris panchang engine and checked against it and Drik Panchang (within 1 minute).</p>
+  <p>Default place: Pipli, Kurukshetra (29.9775 N, 76.8928 E, IST). “Use my location” reads your position once in this browser; it is never stored or sent anywhere. The page works offline.</p>
+  <p>Created: 14 November 2026 · AI-ready preview: 26 November 2026 · <a href="../">Main wheel</a> · <a href="https://github.com/anandvip/choghadiya-wheel">Source on GitHub</a></p>
+</footer>
+</main>
+<script>
+/* ENGINE:START — pure calculation, no DOM. Ported from jyotish/panchang.py; keep in sync.
+   scripts/build-api.mjs and test/ extract the code between these two markers and run it in Node. */
+var CW = (function () {
+  var RAD = Math.PI / 180;
+  // Weekday 0=Sunday..6=Saturday. Planet lords in choghadiya/hora order.
+  var LORD_SEQ = ['Sun', 'Venus', 'Mercury', 'Moon', 'Saturn', 'Jupiter', 'Mars'];
+  var WEEK_LORD = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
+  var CHOG_NAME = { Sun: 'Udveg', Venus: 'Chal', Mercury: 'Labh', Moon: 'Amrit', Saturn: 'Kaal', Jupiter: 'Shubh', Mars: 'Rog' };
+  var CHOG_QUAL = { Udveg: 'bad', Chal: 'neutral', Labh: 'good', Amrit: 'best', Kaal: 'bad', Shubh: 'good', Rog: 'bad' };
+  var GOOD_CHOG = ['Amrit', 'Shubh', 'Labh'];
+  // 1-based eighth-of-day segment for weekday 0=Sun..6=Sat
+  var RAHU_SEG = [8, 2, 7, 5, 6, 4, 3];
+  var YAMA_SEG = [5, 4, 3, 2, 1, 7, 6];
+  var GULI_SEG = [7, 6, 5, 4, 3, 2, 1];
+  // Vaar Vela, Kaal Vela (day eighths) and Kaal Ratri (night eighths). Saturday has two.
+  var VAAR_VELA_SEG = [[4], [7], [2], [5], [8], [3], [6]];
+  var KAAL_VELA_SEG = [[5], [2], [6], [3], [7], [4], [1, 8]];
+  var KAAL_RATRI_SEG = [[6], [4], [2], [7], [5], [3], [1, 8]];
+  var WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var VAAR = ['Ravivar', 'Somvar', 'Mangalvar', 'Budhvar', 'Guruvar', 'Shukravar', 'Shanivar'];
+
+  // ---- Sun position (NOAA / Meeus low-precision, ~0.01 deg) ----
+  function sunPos(jd) {
+    var T = (jd - 2451545.0) / 36525;
+    var L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360;
+    var M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+    var e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+    var C = Math.sin(M * RAD) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
+            Math.sin(2 * M * RAD) * (0.019993 - 0.000101 * T) + Math.sin(3 * M * RAD) * 0.000289;
+    var trueLong = L0 + C, trueAnom = M + C;
+    var R = (1.000001018 * (1 - e * e)) / (1 + e * Math.cos(trueAnom * RAD));
+    var omega = 125.04 - 1934.136 * T;
+    var lambda = trueLong - 0.00569 - 0.00478 * Math.sin(omega * RAD);
+    var eps0 = 23 + (26 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) / 60;
+    var eps = eps0 + 0.00256 * Math.cos(omega * RAD);
+    var decl = Math.asin(Math.sin(eps * RAD) * Math.sin(lambda * RAD)) / RAD;
+    var y = Math.tan(eps / 2 * RAD); y *= y;
+    var eot = 4 / RAD * (y * Math.sin(2 * L0 * RAD) - 2 * e * Math.sin(M * RAD) +
+      4 * e * y * Math.sin(M * RAD) * Math.cos(2 * L0 * RAD) - 0.5 * y * y * Math.sin(4 * L0 * RAD) -
+      1.25 * e * e * Math.sin(2 * M * RAD)); // minutes
+    return { decl: decl, eot: eot, R: R };
+  }
+  // Apparent upper limb with standard refraction (like Swiss Ephemeris rise_trans defaults / Drik).
+  var REFRACTION = 34.5 / 60; // deg at the horizon, 1013.25 hPa / 15 C
+  function sunEvent(utcMidnightMs, lat, lon, rise) {
+    // utcMidnightMs: instant of local midnight. Returns ms (UTC epoch) or null (polar day/night).
+    var t = utcMidnightMs + (rise ? 6 : 18) * 3600000;
+    for (var i = 0; i < 6; i++) {
+      var jd = t / 86400000 + 2440587.5;
+      var s = sunPos(jd);
+      var sd = 0.266563 / s.R; // semidiameter, deg
+      var h0 = -(REFRACTION + sd);
+      var cosH = (Math.sin(h0 * RAD) - Math.sin(lat * RAD) * Math.sin(s.decl * RAD)) /
+                 (Math.cos(lat * RAD) * Math.cos(s.decl * RAD));
+      if (cosH > 1 || cosH < -1) return null;
+      var H = Math.acos(cosH) / RAD; // degrees
+      // solar noon (UTC minutes from the UTC date of t)
+      var dayStart = Math.floor(t / 86400000) * 86400000;
+      var noonMin = 720 - 4 * lon - s.eot;
+      var evMin = noonMin + (rise ? -4 * H : 4 * H);
+      var nt = dayStart + evMin * 60000;
+      // keep the event within 12 h of the guess (date-line safety)
+      while (nt - t > 43200000) nt -= 86400000;
+      while (t - nt > 43200000) nt += 86400000;
+      if (Math.abs(nt - t) < 500) { t = nt; break; }
+      t = nt;
+    }
+    return t;
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function ymd(y, m, d) { var x = new Date(Date.UTC(y, m - 1, d)); return { y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate() }; }
+  function addDays(o, k) { return ymd(o.y, o.m, o.d + k); }
+  function iso(o) { return o.y + '-' + pad(o.m) + '-' + pad(o.d); }
+  function parseISO(s) { var p = s.split('-').map(Number); return { y: p[0], m: p[1], d: p[2] }; }
+  // local midnight of a civil date for a location whose UTC offset (minutes) is given by tzFn(dateObj)
+  function midnight(o, tzMin) { return Date.UTC(o.y, o.m - 1, o.d) - tzMin * 60000; }
+
+  // loc = {lat, lon, tz: function(dateObj) -> offset minutes east of UTC}
+  function sunTimes(o, loc) {
+    var m0 = midnight(o, loc.tz(o));
+    return { sunrise: sunEvent(m0, loc.lat, loc.lon, true), sunset: sunEvent(m0, loc.lat, loc.lon, false) };
+  }
+
+  function computeDay(o, loc) {
+    var a = sunTimes(o, loc), b = sunTimes(addDays(o, 1), loc);
+    var sr = a.sunrise, ss = a.sunset, srN = b.sunrise;
+    if (sr == null || ss == null || srN == null) return null;
+    var wd = new Date(Date.UTC(o.y, o.m - 1, o.d)).getUTCDay();
+    var dseg = (ss - sr) / 8, nseg = (srN - ss) / 8;
+    var dayPart = function (n) { return [sr + (n - 1) * dseg, sr + n * dseg]; };
+    var nightPart = function (n) { return [ss + (n - 1) * nseg, ss + n * nseg]; };
+    var slots = [];
+    var start = LORD_SEQ.indexOf(WEEK_LORD[wd]);
+    var vv = VAAR_VELA_SEG[wd], kv = KAAL_VELA_SEG[wd], kr = KAAL_RATRI_SEG[wd];
+    for (var i = 0; i < 8; i++) {
+      var nm = CHOG_NAME[LORD_SEQ[(start + i) % 7]], n = i + 1, ov = [], ex = [];
+      if (vv.indexOf(n) >= 0) ov.push('Vaar Vela');
+      if (kv.indexOf(n) >= 0) ov.push('Kaal Vela');
+      if (RAHU_SEG[wd] === n) ex.push('Rahu Kaal');
+      if (YAMA_SEG[wd] === n) ex.push('Yamaganda');
+      if (GULI_SEG[wd] === n) ex.push('Gulika');
+      slots.push({ part: 'day', n: n, name: nm, quality: CHOG_QUAL[nm], overlays: ov, extra: ex,
+        start: sr + i * dseg, end: sr + (i + 1) * dseg, date: iso(o) });
+    }
+    var nstart = LORD_SEQ.indexOf(WEEK_LORD[(wd + 4) % 7]);
+    for (var j = 0; j < 8; j++) {
+      var nm2 = CHOG_NAME[LORD_SEQ[(((nstart - 2 * j) % 7) + 7) % 7]];
+      slots.push({ part: 'night', n: j + 1, name: nm2, quality: CHOG_QUAL[nm2],
+        overlays: kr.indexOf(j + 1) >= 0 ? ['Kaal Ratri'] : [], extra: [],
+        start: ss + j * nseg, end: ss + (j + 1) * nseg, date: iso(o) });
+    }
+    var P = function (x) { return { start: x[0], end: x[1] }; };
+    return {
+      date: iso(o), ymd: o, weekday: wd, weekdayName: WEEKDAY[wd], vaar: VAAR[wd],
+      sunrise: sr, sunset: ss, nextSunrise: srN, midnight: midnight(o, loc.tz(o)),
+      slots: slots,
+      rahu: P(dayPart(RAHU_SEG[wd])), yama: P(dayPart(YAMA_SEG[wd])), guli: P(dayPart(GULI_SEG[wd])),
+      vaarVela: vv.map(dayPart).map(P), kaalVela: kv.map(dayPart).map(P), kaalRatri: kr.map(nightPart).map(P)
+    };
+  }
+
+  function badIntervals(D) {
+    var out = [];
+    out.push([D.rahu.start, D.rahu.end, 'Rahu Kaal'], [D.yama.start, D.yama.end, 'Yamaganda'], [D.guli.start, D.guli.end, 'Gulika']);
+    D.vaarVela.forEach(function (x) { out.push([x.start, x.end, 'Vaar Vela']); });
+    D.kaalVela.forEach(function (x) { out.push([x.start, x.end, 'Kaal Vela']); });
+    D.kaalRatri.forEach(function (x) { out.push([x.start, x.end, 'Kaal Ratri']); });
+    return out;
+  }
+  function subtract(a0, a1, bad) {
+    var pieces = [[a0, a1]];
+    bad.forEach(function (b) {
+      var nw = [];
+      pieces.forEach(function (p) {
+        if (b[1] <= p[0] || b[0] >= p[1]) { nw.push(p); return; }
+        if (p[0] < b[0]) nw.push([p[0], b[0]]);
+        if (b[1] < p[1]) nw.push([b[1], p[1]]);
+      });
+      pieces = nw;
+    });
+    return pieces;
+  }
+  // Clean slots = Amrit/Shubh/Labh minus Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela, Kaal Ratri
+  // (same rule as good_slots / next_good_slots in panchang.py, min 20 minutes).
+  function cleanSlots(days, minMinutes) {
+    minMinutes = minMinutes == null ? 20 : minMinutes;
+    var bad = [];
+    days.forEach(function (D) { if (D) bad = bad.concat(badIntervals(D)); });
+    var res = [];
+    days.forEach(function (D) {
+      if (!D) return;
+      D.slots.forEach(function (c) {
+        if (GOOD_CHOG.indexOf(c.name) < 0) return;
+        subtract(c.start, c.end, bad).forEach(function (p) {
+          if ((p[1] - p[0]) / 60000 >= minMinutes) res.push({ name: c.name, part: c.part, date: c.date, start: p[0], end: p[1] });
+        });
+      });
+    });
+    res.sort(function (a, b) { return a.start - b.start; });
+    return res;
+  }
+  // Which slot holds instant t? Looks in the previous day's night first (pre-sunrise hours).
+  function slotAt(t, Dprev, D) {
+    var lists = [Dprev, D];
+    for (var k = 0; k < lists.length; k++) {
+      var L = lists[k]; if (!L) continue;
+      for (var i = 0; i < L.slots.length; i++) {
+        var s = L.slots[i];
+        if (t >= s.start && t < s.end) return { slot: s, day: L, index: i, fromPrevNight: k === 0 };
+      }
+    }
+    return null;
+  }
+  function warnings(s) { return s.overlays.concat(s.extra); }
+  return { computeDay: computeDay, sunTimes: sunTimes, cleanSlots: cleanSlots, slotAt: slotAt, warnings: warnings,
+    addDays: addDays, iso: iso, parseISO: parseISO, midnight: midnight, badIntervals: badIntervals,
+    CHOG_QUAL: CHOG_QUAL, GOOD_CHOG: GOOD_CHOG, WEEKDAY: WEEKDAY };
+})();
+if (typeof module !== 'undefined') module.exports = CW;
+/* ENGINE:END */
+/* PLANNER:START — pure slot planning for "Clear slots" and the focus tasks (no DOM, uses CW).
+   test/planner.test.mjs extracts the code between these two markers and runs it in Node. */
+var CP = (function (CW) {
+  var MIN = 60000, EPS = 1000; // overlaps under a second are float rounding at shared eighth boundaries, not overlaps
+  var AVOID = ['Rog', 'Kaal', 'Udveg'];
+  // overlay windows [start, end, name] that touch [a0, a1], clipped to it
+  function overlaps(a0, a1, bad) {
+    var out = [];
+    bad.forEach(function (b) {
+      var s = Math.max(a0, b[0]), e = Math.min(a1, b[1]);
+      if (e - s > EPS) out.push({ name: b[2], start: s, end: e, whole: s <= a0 + EPS && e >= a1 - EPS });
+    });
+    return out.sort(function (x, y) { return x.start - y.start; });
+  }
+  // [a0, a1] minus the overlay windows
+  function cleanParts(a0, a1, bad) {
+    var pieces = [[a0, a1]];
+    bad.forEach(function (b) {
+      var nw = [];
+      pieces.forEach(function (p) {
+        if (b[1] <= p[0] + EPS || b[0] >= p[1] - EPS) { nw.push(p); return; }
+        if (b[0] - p[0] > EPS) nw.push([p[0], b[0]]);
+        if (p[1] - b[1] > EPS) nw.push([b[1], p[1]]);
+      });
+      pieces = nw;
+    });
+    return pieces;
+  }
+  // Classify slots against the overlays of the given days.
+  // Rule: a good slot (Amrit/Shubh/Labh) with no overlay is clean. A good slot that an overlay touches is spoiled
+  // (listed with its reasons); if the overlay covers only part of it, the clean remainder of at least minMinutes
+  // is ALSO listed as a clean window marked trimmed. Rog/Kaal/Udveg are "not for new starts". Chal is neutral.
+  function plan(days, slots, minMinutes) {
+    var min = (minMinutes == null ? 20 : minMinutes) * MIN, bad = [];
+    days.forEach(function (D) { if (D) bad = bad.concat(CW.badIntervals(D)); });
+    var res = { clean: [], spoiled: [], avoid: [], neutral: [] };
+    slots.forEach(function (s) {
+      var ov = overlaps(s.start, s.end, bad), base = { name: s.name, quality: s.quality, part: s.part, n: s.n, date: s.date, slotStart: s.start, slotEnd: s.end };
+      var mk = function (o) { var r = {}; for (var k in base) r[k] = base[k]; for (var j in o) r[j] = o[j]; return r; };
+      if (CW.GOOD_CHOG.indexOf(s.name) >= 0) {
+        if (!ov.length) {
+          if (s.end - s.start >= min) res.clean.push(mk({ start: s.start, end: s.end, trimmed: false }));
+          else res.spoiled.push(mk({ start: s.start, end: s.end, reasons: [{ name: 'Shorter than ' + (min / MIN) + ' min', start: s.start, end: s.end, whole: true }], keptParts: [] }));
+          return;
+        }
+        var kept = cleanParts(s.start, s.end, bad).filter(function (p) { return p[1] - p[0] >= min; });
+        res.spoiled.push(mk({ start: s.start, end: s.end, reasons: ov, keptParts: kept }));
+        kept.forEach(function (p) { res.clean.push(mk({ start: p[0], end: p[1], trimmed: true })); });
+      } else if (AVOID.indexOf(s.name) >= 0) res.avoid.push(mk({ start: s.start, end: s.end, reasons: ov }));
+      else res.neutral.push(mk({ start: s.start, end: s.end, reasons: ov }));
+    });
+    ['clean', 'spoiled', 'avoid', 'neutral'].forEach(function (k) { res[k].sort(function (a, b) { return a.start - b.start; }); });
+    return res;
+  }
+  // stable key for a clean window (used to assign tasks)
+  function key(c) { return c.date + '|' + c.part + c.n + '|' + Math.round(c.start / 1000); }
+  // ---- calendar export (only ever run on an explicit click) ----
+  var IST = 330 * MIN;
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function exportable(tasks) {
+    return tasks.filter(function (t) { return t.slot && (t.status === 'open' || t.status === 'moved' || !t.status); })
+      .slice().sort(function (a, b) { return a.slot.start - b.slot.start; });
+  }
+  function istParts(t) { var d = new Date(Math.round(t / MIN) * MIN + IST); return { y: d.getUTCFullYear(), mo: d.getUTCMonth(), d: d.getUTCDate(), wd: d.getUTCDay(), hm: d.toISOString().slice(11, 16) }; }
+  function istHM(t) { return istParts(t).hm; }
+  function istDate(t) { var p = istParts(t); return CW.WEEKDAY[p.wd].slice(0, 3) + ' ' + p.d + ' ' + MON[p.mo] + ' ' + p.y; }
+  // UTC, rounded to the nearest minute like every time on the page, e.g. 20261125T103500Z
+  function icsTime(t) { return new Date(Math.round(t / MIN) * MIN).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); }
+  function icsText(x) { return String(x).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n'); }
+  // fold to 75 octets per line (RFC 5545 3.1), never splitting a UTF-8 character
+  function fold(line) {
+    var out = [], cur = '', n = 0;
+    for (var i = 0; i < line.length; i++) {
+      var c = line.charCodeAt(i), ch = line[i];
+      if (c >= 0xD800 && c <= 0xDBFF && i + 1 < line.length) { ch += line[++i]; }
+      var b = c < 0x80 ? 1 : c < 0x800 ? 2 : ch.length === 2 ? 4 : 3;
+      if (n + b > 75) { out.push(cur); cur = ' '; n = 1; }
+      cur += ch; n += b;
+    }
+    out.push(cur);
+    return out.join('\r\n');
+  }
+  function slotLine(sl) { return sl.name + ' choghadiya (' + (sl.part === 'day' ? 'day ' : 'night ') + sl.n + (sl.trimmed ? ', trimmed' : '') + ')'; }
+  // opts: { alarmMin (default 15), now (ms) }
+  function ics(tasks, opts) {
+    opts = opts || {};
+    var al = opts.alarmMin == null ? 15 : Math.max(0, Math.min(1440, Math.round(opts.alarmMin))), now = opts.now || Date.now();
+    var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//anandvip//Choghadiya Wheel focus tasks//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    exportable(tasks).forEach(function (t) {
+      var sl = t.slot;
+      L.push('BEGIN:VEVENT', 'UID:' + icsText(t.id + '-' + icsTime(sl.start)) + '@choghadiya-wheel', 'DTSTAMP:' + icsTime(now),
+        'DTSTART:' + icsTime(sl.start), 'DTEND:' + icsTime(sl.end), 'SUMMARY:' + icsText(t.title),
+        'DESCRIPTION:' + icsText(slotLine(sl) + ', ' + istHM(sl.start) + '–' + istHM(sl.end) + ' IST' + (sl.place ? ', ' + sl.place : '') + '.' +
+          (t.term === 'long' ? ' Long-term task.' : ' Short-term task.') + (t.note ? '\nNote: ' + t.note : '')),
+        'CATEGORIES:Focus', 'TRANSP:OPAQUE',
+        'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsText(t.title), 'TRIGGER:-PT' + al + 'M', 'END:VALARM', 'END:VEVENT');
+    });
+    L.push('END:VCALENDAR');
+    return L.map(fold).join('\r\n') + '\r\n';
+  }
+  function calText(tasks, opts) {
+    opts = opts || {};
+    var al = opts.alarmMin == null ? 15 : opts.alarmMin, now = opts.now || Date.now(), list = exportable(tasks);
+    var L = ['Focus tasks for the calendar · times in IST (Asia/Kolkata)', 'Exported ' + istDate(now) + ' ' + istHM(now) + ' IST from the Choghadiya Wheel. Nothing has been added to any calendar yet.', ''];
+    if (!list.length) L.push('(No assigned open or moved tasks.)');
+    list.forEach(function (t, i) {
+      var sl = t.slot;
+      L.push((i + 1) + '. ' + istDate(sl.start) + ', ' + istHM(sl.start) + '–' + istHM(sl.end) + ' IST · ' + slotLine(sl) + (sl.place ? ' · ' + sl.place : ''));
+      L.push('   Task: ' + t.title + ' (' + (t.term === 'long' ? 'long-term' : 'short-term') + (t.status === 'moved' ? ', moved' : '') + ')');
+      if (t.note) L.push('   Note: ' + t.note);
+      L.push('   Reminder: ' + al + ' min before');
+    });
+    return L.join('\n') + '\n';
+  }
+  return { plan: plan, overlaps: overlaps, cleanParts: cleanParts, key: key, AVOID: AVOID,
+    exportable: exportable, ics: ics, calText: calText, fold: fold, icsText: icsText, icsTime: icsTime, istHM: istHM };
+})(CW);
+/* PLANNER:END */
+// ===== UI =====
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var PIPLI = { name: 'Pipli, Kurukshetra', lat: 29.9775, lon: 76.8928, tz: function () { return 330; }, tzLabel: 'IST' };
+  var loc = PIPLI;
+  var state = { sel: null, todayMode: true, now: Date.now(), pickT: null };
+  var ABBR = { 'Vaar Vela': 'VV', 'Kaal Vela': 'KV', 'Kaal Ratri': 'KR', 'Rahu Kaal': 'RK', 'Yamaganda': 'YG', 'Gulika': 'GK' };
+  var QTEXT = { best: 'Best', good: 'Good', neutral: 'Neutral', bad: 'Avoid' };
+  var MEANING = { Amrit: 'nectar', Shubh: 'auspicious', Labh: 'gain', Chal: 'moving', Udveg: 'anxiety', Kaal: 'loss', Rog: 'illness' };
+  var canvas = $('wheel'), wrap = $('wrap'), ctx = canvas.getContext('2d');
+  var params = new URLSearchParams(location.search);
+  // ?date=YYYY-MM-DD&lat=&lon= (time zone stays IST). Anything invalid falls back to today and Pipli.
+  function paramDate(s) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return null;
+    var o = CW.parseISO(s), c = CW.addDays(o, 0);
+    return o.y >= 1900 && o.y <= 2100 && CW.iso(c) === s ? o : null;
+  }
+  function paramNum(s, max) {
+    if (!/^\s*-?\d+(\.\d+)?\s*$/.test(s || '')) return null;
+    var x = parseFloat(s); return Math.abs(x) <= max ? x : null;
+  }
+
+  // ---------- HTML-in-Canvas feature detection ----------
+  var HIC = params.get('mode') !== 'fallback' &&
+    typeof CanvasRenderingContext2D !== 'undefined' && 'drawElementImage' in CanvasRenderingContext2D.prototype;
+  if (HIC) { canvas.setAttribute('content', 'drawable'); }
+  function setBadge() {
+    var b = $('mode');
+    b.textContent = HIC ? 'HTML-in-Canvas mode' : 'Fallback mode (canvas + HTML overlay)';
+    b.className = 'badge' + (HIC ? ' hic' : '');
+    b.title = HIC ? 'Labels and the centre card are live HTML drawn into the canvas with drawElementImage() (Chrome 157+).'
+                  : 'This browser has no HTML-in-Canvas support, so labels are canvas text and the centre card floats over the wheel.';
+  }
+
+  // centre card + 16 label elements
+  var centre = document.createElement('div'); centre.id = 'centre';
+  var labels = [];
+  for (var i = 0; i < 16; i++) { var l = document.createElement('span'); l.className = 'lbl'; labels.push(l); }
+  function mountElements() {
+    if (HIC) {
+      wrap.classList.remove('overlay');
+      centre.setAttribute('drawable', ''); canvas.appendChild(centre);
+      labels.forEach(function (l) { l.setAttribute('drawable', ''); canvas.appendChild(l); });
+    } else {
+      canvas.removeAttribute('content');
+      wrap.classList.add('overlay');
+      centre.removeAttribute('drawable'); wrap.appendChild(centre);
+      labels.forEach(function (l) { if (l.parentNode) l.parentNode.removeChild(l); });
+    }
+  }
+  function toFallback(err) {
+    if (!HIC) return;
+    if (window.console) console.warn('HTML-in-Canvas unavailable, using fallback:', err && err.message);
+    HIC = false; mountElements(); setBadge(); paint();
+  }
+
+  // ---------- time helpers (display in the device time zone) ----------
+  var fmtT0 = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+  // round to the nearest minute (Drik Panchang display convention) before formatting
+  var fmtT = { format: function (t) { return fmtT0.format(Math.round(t / 60000) * 60000); } };
+  var fmtD = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  var fmtDL = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  function devDate(t) { var x = new Date(t); return x.getFullYear() + '-' + (x.getMonth() + 1) + '-' + x.getDate(); }
+  function tm(t, refIso) {
+    var s = fmtT.format(t);
+    if (refIso) { var p = CW.parseISO(refIso); var r = p.y + '-' + p.m + '-' + p.d; if (devDate(t) !== r) s += ' (' + fmtD.format(t) + ')'; }
+    return s;
+  }
+  function dur(ms) { var m = Math.max(0, Math.round(ms / 60000)); return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : m + ' min'; }
+  function locToday() { var off = loc.tzLabel === 'IST' ? 330 : -new Date(state.now).getTimezoneOffset(); var o = new Date(state.now + off * 60000); return { y: o.getUTCFullYear(), m: o.getUTCMonth() + 1, d: o.getUTCDate() }; }
+  function devTzLabel() {
+    var z = ''; try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    var off = -new Date().getTimezoneOffset(), s = off >= 0 ? '+' : '-'; off = Math.abs(off);
+    return (z ? z + ', ' : '') + 'UTC' + s + Math.floor(off / 60) + (off % 60 ? ':' + ('0' + off % 60).slice(-2) : '');
+  }
+  function locMidToday() { return CW.midnight(locToday(), loc.tz(locToday())); }
+
+  // ---------- compute model ----------
+  var model = null;
+  function compute() {
+    state.now = Date.now();
+    if (state.todayMode) state.sel = locToday();
+    var sel = state.sel;
+    var D = CW.computeDay(sel, loc), Dp = CW.computeDay(CW.addDays(sel, -1), loc), Dn = CW.computeDay(CW.addDays(sel, 1), loc);
+    var isToday = CW.iso(sel) === CW.iso(locToday());
+    var target = state.pickT != null ? state.pickT : isToday ? state.now : D ? D.midnight + (state.now - locMidToday()) : state.now;
+    if (!D) { model = { ok: false, sel: sel }; return; }
+    var hit = CW.slotAt(target, Dp, D);
+    var wheelDay = hit && hit.fromPrevNight ? Dp : D;
+    var clean = CW.cleanSlots([Dp, D, Dn]);
+    var nextClean = null;
+    for (var i = 0; i < clean.length; i++) if (clean[i].end > target + 60000) { nextClean = clean[i]; break; }
+    model = { ok: true, sel: sel, D: D, Dp: Dp, Dn: Dn, isToday: isToday, target: target, hit: hit, wheelDay: wheelDay, nextClean: nextClean,
+      picked: state.pickT != null, live: isToday && state.pickT == null };
+  }
+
+  // ---------- wheel geometry ----------
+  var css = 360, scale = 1;
+  function resize() {
+    var w = Math.min(wrap.clientWidth || 360, 560);
+    css = w; scale = window.devicePixelRatio || 1;
+    canvas.style.width = w + 'px'; canvas.style.height = w + 'px';
+    canvas.width = Math.round(w * scale); canvas.height = Math.round(w * scale);
+    requestPaint();
+  }
+  function frac(t) { var x = new Date(t); return (x.getHours() * 3600 + x.getMinutes() * 60 + x.getSeconds()) / 86400; }
+  function ang(t) { return Math.PI / 2 + frac(t) * 2 * Math.PI; } // midnight at bottom, noon at top, clockwise
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function qColor(q) { return cssVar('--' + q); }
+
+  function geometry() {
+    var S = css, c = S / 2, Rout = c - 4, Rseg = Rout - 24, Rin = Rseg * 0.56;
+    return { S: S, c: c, Rout: Rout, Rseg: Rseg, Rin: Rin, Rlab: (Rseg + Rin) / 2 + 2 };
+  }
+
+  function paint() {
+    try { paintInner(); } catch (e) { if (HIC) toFallback(e); else throw e; }
+  }
+  function paintInner() {
+    if (ctx.reset) ctx.reset(); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    if (!model || !model.ok) return;
+    var g = geometry(), c = g.c, W = model.wheelDay, hit = model.hit;
+    var fg = cssVar('--fg'), muted = cssVar('--muted'), ring = cssVar('--ring'), line = cssVar('--line'), warn = cssVar('--warn'), accent = cssVar('--accent');
+    // hour ring
+    ctx.beginPath(); ctx.arc(c, c, g.Rout, 0, 2 * Math.PI); ctx.fillStyle = ring; ctx.fill();
+    ctx.font = '600 10px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (var h = 0; h < 24; h++) {
+      var a = Math.PI / 2 + h / 24 * 2 * Math.PI, r1 = g.Rout - (h % 3 ? 5 : 8);
+      ctx.beginPath(); ctx.moveTo(c + Math.cos(a) * g.Rout, c + Math.sin(a) * g.Rout); ctx.lineTo(c + Math.cos(a) * r1, c + Math.sin(a) * r1);
+      ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.stroke();
+      if (h % 3 === 0) { ctx.fillStyle = muted; var lbl = h === 0 ? '0' : String(h); ctx.fillText(lbl, c + Math.cos(a) * (g.Rout - 15), c + Math.sin(a) * (g.Rout - 15)); }
+    }
+    // segments
+    W.slots.forEach(function (s, i) {
+      var a0 = ang(s.start), a1 = ang(s.end); if (a1 <= a0) a1 += 2 * Math.PI;
+      var active = hit && hit.slot === s, R = active ? g.Rseg + 6 : g.Rseg;
+      ctx.beginPath(); ctx.arc(c, c, R, a0, a1); ctx.arc(c, c, g.Rin, a1, a0, true); ctx.closePath();
+      ctx.fillStyle = qColor(s.quality); ctx.fill();
+      if (s.part === 'night') { ctx.fillStyle = 'rgba(15,23,42,.38)'; ctx.fill(); }
+      ctx.strokeStyle = cssVar('--card'); ctx.lineWidth = 1.5; ctx.stroke();
+      var w = CW.warnings(s);
+      if (w.length) { // inner warning arc
+        ctx.beginPath(); ctx.arc(c, c, g.Rin + 4, a0 + 0.03, a1 - 0.03); ctx.strokeStyle = warn; ctx.lineWidth = 5; ctx.stroke();
+      }
+      if (active) { ctx.beginPath(); ctx.arc(c, c, R, a0, a1); ctx.arc(c, c, g.Rin, a1, a0, true); ctx.closePath(); ctx.strokeStyle = fg; ctx.lineWidth = 2.5; ctx.stroke(); }
+      // label
+      var am = (a0 + a1) / 2, lx = c + Math.cos(am) * g.Rlab, ly = c + Math.sin(am) * g.Rlab;
+      if (HIC) {
+        var el = labels[i];
+        var wpx = el.offsetWidth, hpx = el.offsetHeight;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawElementImage(el, (lx - wpx / 2) * scale, (ly - hpx / 2) * scale, wpx * scale, hpx * scale);
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      } else {
+        ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 2;
+        ctx.font = '600 12px system-ui,sans-serif'; ctx.fillText(s.name, lx, w.length ? ly - 5 : ly);
+        if (w.length) { ctx.font = '700 9px system-ui,sans-serif'; ctx.fillText(w.map(function (x) { return ABBR[x]; }).join('·'), lx, ly + 7); }
+        ctx.shadowBlur = 0;
+      }
+    });
+    // sunrise / sunset / next sunrise markers
+    [[W.sunrise, '↑ ' + fmtT.format(W.sunrise)], [W.sunset, '↓ ' + fmtT.format(W.sunset)]].forEach(function (m) {
+      var a = ang(m[0]);
+      ctx.beginPath(); ctx.moveTo(c + Math.cos(a) * g.Rin, c + Math.sin(a) * g.Rin); ctx.lineTo(c + Math.cos(a) * (g.Rseg + 8), c + Math.sin(a) * (g.Rseg + 8));
+      ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(c + Math.cos(a) * (g.Rseg + 12), c + Math.sin(a) * (g.Rseg + 12), 6, 0, 2 * Math.PI); ctx.fillStyle = '#f59e0b'; ctx.fill();
+      ctx.font = '700 10px system-ui,sans-serif'; ctx.fillStyle = fg;
+      var tw = ctx.measureText(m[1]).width, mx = c + Math.cos(a) * (g.Rseg + 12);
+      mx = Math.max(tw / 2 + 3, Math.min(g.S - tw / 2 - 3, mx));
+      ctx.save(); ctx.globalAlpha = .9; ctx.fillText(m[1], mx, c + Math.sin(a) * (g.Rseg + 12) + (Math.sin(a) > 0.2 ? 14 : -14)); ctx.restore();
+    });
+    // needle (current time of day)
+    var na = ang(model.target);
+    ctx.beginPath(); ctx.moveTo(c + Math.cos(na) * (g.Rin - 2), c + Math.sin(na) * (g.Rin - 2)); ctx.lineTo(c + Math.cos(na) * (g.Rout - 2), c + Math.sin(na) * (g.Rout - 2));
+    ctx.strokeStyle = fg; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(c + Math.cos(na) * (g.Rout - 2), c + Math.sin(na) * (g.Rout - 2), 5, 0, 2 * Math.PI); ctx.fillStyle = fg; ctx.fill();
+    // centre card
+    if (HIC) {
+      var cw = centre.offsetWidth, ch = centre.offsetHeight;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawElementImage(centre, (c - cw / 2) * scale, (c - ch / 2) * scale, cw * scale, ch * scale);
+    }
+  }
+  function requestPaint() {
+    if (HIC && typeof canvas.requestPaint === 'function') canvas.requestPaint();
+    else if (HIC) requestAnimationFrame(paint);
+    else paint();
+  }
+
+  // ---------- DOM updates ----------
+  function updateDom() {
+    var m = model, act = $('active');
+    $('date').value = CW.iso(state.sel);
+    var tzNote = (-new Date().getTimezoneOffset() !== loc.tz(state.sel)) ? ' · times shown in your device zone (' + devTzLabel() + ')' : ' · times in ' + devTzLabel();
+    $('locText').innerHTML = 'Location: <b>' + loc.name + '</b> (' + Math.abs(loc.lat).toFixed(4) + (loc.lat >= 0 ? ' N, ' : ' S, ') + Math.abs(loc.lon).toFixed(4) + (loc.lon >= 0 ? ' E' : ' W') + ')' + tzNote;
+    $('pipli').style.display = loc === PIPLI ? 'none' : '';
+    if (!m.ok) {
+      act.innerHTML = '<p class="err">No sunrise or sunset on this date at this latitude, so choghadiya is not defined.</p>';
+      $('tbl').tBodies[0].innerHTML = ''; centre.innerHTML = ''; requestPaint(); return;
+    }
+    var D = m.D, hit = m.hit, s = hit && hit.slot;
+    var dateLong = fmtDL.format(Date.UTC(state.sel.y, state.sel.m - 1, state.sel.d));
+    // labels for the wheel (HTML-in-Canvas)
+    m.wheelDay.slots.forEach(function (x, i) {
+      var w = CW.warnings(x);
+      labels[i].innerHTML = x.name + (w.length ? '<small>' + w.map(function (y) { return ABBR[y]; }).join('·') + '</small>' : '');
+      labels[i].setAttribute('aria-label', x.name + ', ' + (x.part === 'day' ? 'day ' : 'night ') + x.n + ', ' + fmtT.format(x.start) + ' to ' + fmtT.format(x.end) + (w.length ? ', ' + w.join(', ') : ''));
+    });
+    $('wheelCap').textContent = 'Wheel: ' + m.wheelDay.weekdayName + ' ' + fmtDL.format(Date.UTC(m.wheelDay.ymd.y, m.wheelDay.ymd.m - 1, m.wheelDay.ymd.d)) + ', sunrise to next sunrise · needle = ' + (m.live ? 'now' : m.picked ? 'the moment you picked' : 'same clock time');
+    // centre card
+    var g = geometry(), cd = Math.floor(g.Rin * 2 * 0.86);
+    centre.style.width = cd + 'px'; centre.style.height = cd + 'px';
+    if (s) {
+      var wn = CW.warnings(s);
+      centre.innerHTML = '<div class="k">' + (m.live ? 'Now' : 'At ' + fmtT0.format(m.target)) + '</div>' +
+        '<div class="n q' + s.quality + '">' + s.name + '</div>' +
+        '<div class="q q' + s.quality + '">' + QTEXT[s.quality] + '</div>' +
+        '<div class="t">' + fmtT.format(s.start) + ' – ' + fmtT.format(s.end) + '</div>' +
+        (m.live ? '<div class="t">' + dur(s.end - m.target) + ' left</div>' : '') +
+        (wn.length ? '<div class="w">⚠ ' + wn.map(function (y) { return ABBR[y]; }).join(' · ') + '</div>' : '');
+    } else centre.innerHTML = '<div class="k">No slot</div>';
+    canvas.setAttribute('aria-label', 'Choghadiya wheel for ' + m.wheelDay.weekdayName + ' ' + m.wheelDay.date + (s ? '. ' + (m.live ? 'Active now: ' : 'At this clock time: ') + s.name + ', ' + QTEXT[s.quality] + ', ' + fmtT.format(s.start) + ' to ' + fmtT.format(s.end) : ''));
+
+    // active card
+    var h = '';
+    if (s) {
+      var w2 = CW.warnings(s);
+      h += '<h2>' + (m.live ? 'Current active slot' : 'Slot at ' + fmtT0.format(m.target) + ' on ' + fmtD.format(m.target)) + '</h2>';
+      h += '<div class="name q' + s.quality + '">' + s.name + ' <span style="font-size:1rem;font-weight:600">· ' + QTEXT[s.quality] + ' (' + MEANING[s.name] + ')</span></div>';
+      h += '<div class="row"><span>' + (s.part === 'day' ? 'Day' : 'Night') + ' choghadiya ' + s.n + ' of 8</span><span><b>' + tm(s.start, CW.iso(state.sel)) + ' – ' + tm(s.end, CW.iso(state.sel)) + '</b></span></div>';
+      if (m.live) h += '<div class="row"><span><b>' + dur(s.end - m.target) + '</b> remaining</span><span class="note" style="margin:0">clock ' + fmtT0.format(m.target) + ', updates every 30 s</span></div>';
+      h += '<div class="chips">' + (w2.length ? w2.map(function (x) { return '<span class="chip">⚠ ' + x + '</span>'; }).join('') :
+        (CW.GOOD_CHOG.indexOf(s.name) >= 0 ? '<span class="chip ok">✓ Clean slot (no overlays)</span>' : '<span class="chip ok">No Vela / Kaal Ratri / Rahu overlay</span>')) + '</div>';
+      if (w2.length) h += '<p class="note">' + w2.join(', ') + ' overlap' + (w2.length > 1 ? '' : 's') + ' this slot: traditionally avoid starting new work now, even if the choghadiya is good.</p>';
+      if (hit.fromPrevNight) h += '<p class="note">Before sunrise: this slot belongs to <b>' + hit.day.weekdayName + '’s night</b> (a Vedic day runs sunrise to sunrise), so the wheel shows ' + hit.day.weekdayName + '.</p>';
+    } else h += '<h2>No slot at this time</h2>';
+    h += '<div id="clean">';
+    if (m.nextClean) {
+      var nc = m.nextClean, started = nc.start <= m.target;
+      h += '<b>' + (started ? 'Clean slot now' : 'Next clean slot') + ':</b> ' + nc.name + ' (' + nc.part + ') ' +
+        (started ? 'until ' + tm(nc.end, CW.iso(state.sel)) + ' · ' + dur(nc.end - m.target) + ' left' :
+          tm(nc.start, CW.iso(state.sel)) + ' – ' + tm(nc.end, CW.iso(state.sel)) + ' · ' + dur(nc.end - nc.start));
+    } else h += '<b>Next clean slot:</b> none in the next day.';
+    h += '</div>';
+    h += '<p class="note">' + D.weekdayName + ' (' + D.vaar + '), ' + dateLong + ' · Sunrise ' + fmtT.format(D.sunrise) + ' · Sunset ' + fmtT.format(D.sunset) +
+      ' · Rahu Kaal ' + fmtT.format(D.rahu.start) + '–' + fmtT.format(D.rahu.end) + '</p>';
+    act.innerHTML = h;
+
+    // table
+    $('tableTitle').textContent = 'All 16 slots · ' + D.weekdayName + ', ' + dateLong;
+    var rows = '';
+    function row(x, label) {
+      var w = CW.warnings(x), cur = hit && hit.slot === x;
+      return '<tr data-t="' + Math.ceil(x.start) + '" title="Show this slot on the wheel"' + (cur ? ' class="cur" aria-current="true"' : '') + '><td>' + label + '</td><td><i class="dot" style="background:var(--' + x.quality + ')"></i><b>' + x.name + '</b> <span class="q' + x.quality + '" style="font-size:.8rem">' + QTEXT[x.quality] + '</span>' + (cur ? ' <b>◀ ' + (m.live ? 'now' : 'this time') + '</b>' : '') + '</td><td>' + tm(x.start, D.date) + '</td><td>' + tm(x.end, D.date) + '</td><td class="ov">' + w.join(', ') + '</td></tr>';
+    }
+    if (m.Dp) {
+      var tail = m.Dp.slots.filter(function (x) { return x.part === 'night' && x.end > D.midnight; });
+      if (tail.length) { rows += '<tr class="sec"><td colspan="5">Early hours: ' + m.Dp.weekdayName + '’s night continues until sunrise</td></tr>'; tail.forEach(function (x) { rows += row(x, 'N' + x.n); }); }
+    }
+    rows += '<tr class="sec"><td colspan="5">Day: sunrise ' + fmtT.format(D.sunrise) + ' → sunset ' + fmtT.format(D.sunset) + '</td></tr>';
+    D.slots.slice(0, 8).forEach(function (x) { rows += row(x, 'D' + x.n); });
+    rows += '<tr class="sec"><td colspan="5">Night: sunset ' + fmtT.format(D.sunset) + ' → next sunrise ' + tm(D.nextSunrise, D.date) + '</td></tr>';
+    D.slots.slice(8).forEach(function (x) { rows += row(x, 'N' + x.n); });
+    $('tbl').tBodies[0].innerHTML = rows;
+    requestPaint();
+  }
+
+  // ---------- clear slots (selected Vedic day + the early hours of the previous night) ----------
+  var plan = null;
+  function rangeTxt(a, b, ref) { return tm(a, ref) + ' – ' + tm(b, ref); }
+  function slotLbl(x, D) { return (x.part === 'day' ? 'D' : 'N') + x.n + (x.date !== D.date ? ' <span class="note">(' + CW.WEEKDAY[new Date(x.date + 'T00:00:00Z').getUTCDay()].slice(0, 3) + ' night)</span>' : ''); }
+  function renderClear(m) {
+    var tb = $('clearTbl').tBodies[0];
+    if (!m.ok) { plan = null; tb.innerHTML = ''; return; }
+    var D = m.D, tail = m.Dp ? m.Dp.slots.filter(function (x) { return x.part === 'night' && x.end > D.midnight; }) : [];
+    plan = CP.plan([m.Dp, D, m.Dn], tail.concat(D.slots));
+    var dateLong = fmtDL.format(Date.UTC(state.sel.y, state.sel.m - 1, state.sel.d));
+    $('clearTitle').textContent = (m.isToday ? 'Clear slots today · ' : 'Clear slots · ') + D.weekdayName + ', ' + dateLong;
+    function st(x) {
+      if (!m.isToday) return '';
+      if (x.end <= state.now) return ' <span class="tag">ended</span>';
+      return x.start <= state.now ? ' <span class="tag now">now</span>' : '';
+    }
+    function tr(x, why, cls) {
+      var past = m.isToday && x.end <= state.now;
+      return '<tr' + (past ? ' class="past"' : '') + '><td>' + slotLbl(x, D) + '</td><td><i class="dot" style="background:var(--' + x.quality + ')"></i><b>' + x.name + '</b>' +
+        (cls ? ' <span class="tag ' + cls + '">' + (cls === 'avoid' ? 'not for new starts' : 'spoiled') + '</span>' : '') + st(x) +
+        (why ? '<div class="' + (cls ? 'ov' : 'note') + '" style="margin-top:2px;font-size:.8rem' + (cls ? ';color:var(--warn)' : '') + '">' + why + '</div>' : '') +
+        '</td><td style="white-space:nowrap">' + tm(x.start, D.date) + ' –<br>' + tm(x.end, D.date) + '<div class="note" style="margin:0">' + dur(x.end - x.start) + '</div></td></tr>';
+    }
+    function reasons(x) {
+      return x.reasons.map(function (r) { return r.name + (r.whole ? ' covers the whole slot' : ' ' + rangeTxt(r.start, r.end, D.date)); }).join('; ');
+    }
+    var h = '<tr class="sec"><td colspan="3">Clean windows (' + plan.clean.length + ')</td></tr>';
+    h += plan.clean.length ? plan.clean.map(function (x) { return tr(x, x.trimmed ? 'Trimmed: clean part of ' + rangeTxt(x.slotStart, x.slotEnd, D.date) : 'No overlay', ''); }).join('') :
+      '<tr><td colspan="3" class="note">No clean window on this day.</td></tr>';
+    h += '<tr class="sec"><td colspan="3">Spoiled good slots (' + plan.spoiled.length + ')</td></tr>';
+    h += plan.spoiled.length ? plan.spoiled.map(function (x) { return tr(x, reasons(x) + (x.keptParts.length ? ' · clean part kept above' : ''), 'spoiled'); }).join('') :
+      '<tr><td colspan="3" class="note">None.</td></tr>';
+    h += '<tr class="sec"><td colspan="3">Rog, Kaal, Udveg · not for new starts (' + plan.avoid.length + ')</td></tr>';
+    h += plan.avoid.map(function (x) { return tr(x, x.reasons.length ? 'Also ' + reasons(x) : '', 'avoid'); }).join('');
+    tb.innerHTML = h;
+  }
+
+  // ---------- focus tasks: localStorage only, never in the URL or sent anywhere ----------
+  var TKEY = 'cw.focusTasks.v1';
+  var tasks = loadTasks(), taskView = '';
+  function loadTasks() {
+    try { var a = JSON.parse(localStorage.getItem(TKEY) || '[]'); return Array.isArray(a) ? a.filter(function (t) { return t && typeof t.title === 'string'; }) : []; }
+    catch (e) { return []; }
+  }
+  function saveTasks() { try { localStorage.setItem(TKEY, JSON.stringify(tasks)); } catch (e) { $('taskEmpty').textContent = 'This browser is not saving data, so tasks will be lost on reload.'; } }
+  function esc(x) { return String(x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function slotOf(c) { return { key: CP.key(c), date: c.date, part: c.part, n: c.n, name: c.name, start: c.start, end: c.end, trimmed: !!c.trimmed, place: loc.name }; }
+  function slotTxt(sl) { return fmtD.format(sl.start) + ' · ' + sl.name + ' (' + (sl.part === 'day' ? 'D' : 'N') + sl.n + (sl.trimmed ? ', trimmed' : '') + ') ' + fmtT.format(sl.start) + ' – ' + fmtT.format(sl.end); }
+  var STATUS = { open: 'Open', done: 'Done', skipped: 'Skipped', moved: 'Moved' };
+  var rendering = false;
+  function renderTasks() {
+    if (rendering) return; rendering = true;
+    try { drawTasks(); } finally { rendering = false; }
+  }
+  function drawTasks() {
+    var list = $('taskList'), opts = plan ? plan.clean.filter(function (c) { return !(model.isToday && c.end <= state.now); }) : [];
+    taskView = viewKey();
+    $('taskEmpty').style.display = tasks.length ? 'none' : '';
+    list.innerHTML = tasks.map(function (t) {
+      var o = '<option value="">' + (t.slot ? 'Move to a clean window…' : 'Assign a clean window…') + '</option>';
+      if (t.slot) o += '<option value="' + esc(t.slot.key) + '" selected>' + esc(slotTxt(t.slot)) + '</option>';
+      opts.forEach(function (c) { var k = CP.key(c); if (!t.slot || k !== t.slot.key) o += '<option value="' + esc(k) + '">' + esc(slotTxt(slotOf(c))) + '</option>'; });
+      var st = t.status || 'open';
+      return '<li class="task ' + st + '" data-id="' + esc(t.id) + '"><div class="tt"><b>' + esc(t.title) + '</b><span class="tag">' + (t.term === 'long' ? 'Long-term' : 'Short-term') + '</span>' +
+        '<span class="tag st-' + st + '">' + STATUS[st] + '</span></div>' +
+        '<div class="bar"><select class="assign" aria-label="Clean window for ' + esc(t.title) + '">' + o + '</select>' +
+        ['done', 'skipped', 'moved'].map(function (a) { return '<button type="button" data-act="' + a + '" aria-pressed="' + (st === a) + '">' + { done: '✓ Done', skipped: 'Skip', moved: 'Move' }[a] + '</button>'; }).join('') +
+        '<button type="button" data-act="del" aria-label="Remove ' + esc(t.title) + '">✕</button></div>' +
+        '<input class="tnote" type="text" maxlength="140" placeholder="Short note (optional)" aria-label="Note for ' + esc(t.title) + '" value="' + esc(t.note || '') + '">' +
+        (t.movedFrom ? '<div class="note">Moved from ' + esc(slotTxt(t.movedFrom)) + '</div>' : '') +
+        (!t.slot ? '<div class="note">Not assigned yet.</div>' : '') + '</li>';
+    }).join('');
+  }
+  function viewKey() { return model && model.ok ? model.D.date + '|' + loc.name + '|' + (plan ? plan.clean.filter(function (c) { return !(model.isToday && c.end <= state.now); }).length : 0) : ''; }
+  function findTask(el) { var li = el.closest('li.task'), id = li && li.getAttribute('data-id'); for (var i = 0; i < tasks.length; i++) if (tasks[i].id === id) return i; return -1; }
+  $('taskForm').onsubmit = function (e) {
+    e.preventDefault();
+    var title = $('taskTitle').value.trim(); if (!title) return;
+    tasks.push({ id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: title.slice(0, 120), term: $('taskTerm').value === 'long' ? 'long' : 'short',
+      status: 'open', note: '', slot: null, created: Date.now() });
+    $('taskTitle').value = ''; saveTasks(); renderTasks();
+  };
+  $('taskList').addEventListener('change', function (e) {
+    var i = findTask(e.target); if (i < 0) return; var t = tasks[i];
+    if (e.target.classList.contains('assign')) {
+      var k = e.target.value, c = plan && plan.clean.filter(function (x) { return CP.key(x) === k; })[0];
+      if (!c || (t.slot && t.slot.key === k)) return;
+      if (t.slot) { t.movedFrom = t.slot; t.status = 'moved'; } else if (t.status !== 'moved') t.status = 'open';
+      t.slot = slotOf(c);
+    } else if (e.target.classList.contains('tnote')) { t.note = e.target.value.slice(0, 140); saveTasks(); return; } // no re-render: the input may be blurring
+    saveTasks(); renderTasks();
+  });
+  $('taskList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var i = findTask(b); if (i < 0) return; var t = tasks[i], a = b.getAttribute('data-act');
+    if (a === 'del') tasks.splice(i, 1);
+    else if (a === 'moved') { if (t.status === 'moved' && !t.slot) t.status = 'open'; else { if (t.slot) { t.movedFrom = t.slot; t.slot = null; } t.status = 'moved'; } }
+    else t.status = t.status === a ? 'open' : a;
+    saveTasks(); renderTasks();
+    if (a === 'moved') { var li = $('taskList').querySelector('li[data-id="' + t.id + '"] select'); if (li) li.focus(); }
+  });
+
+  // ---------- calendar handoff: explicit clicks only ----------
+  var PKEY = 'cw.focusPrefs.v1';
+  try { var pr = JSON.parse(localStorage.getItem(PKEY) || '{}'); if (pr && pr.alarmMin >= 0 && pr.alarmMin <= 1440) $('alarmMin').value = pr.alarmMin; } catch (e) {}
+  function alarmMin() { var v = parseInt($('alarmMin').value, 10); return isNaN(v) ? 15 : Math.max(0, Math.min(1440, v)); }
+  $('alarmMin').onchange = function () { this.value = alarmMin(); try { localStorage.setItem(PKEY, JSON.stringify({ alarmMin: alarmMin() })); } catch (e) {} };
+  $('exportIcs').onclick = function () {
+    var n = CP.exportable(tasks).length, msg = $('exportMsg');
+    if (!n) { msg.textContent = 'Assign at least one open task to a clean window first.'; return; }
+    var url = URL.createObjectURL(new Blob([CP.ics(tasks, { alarmMin: alarmMin() })], { type: 'text/calendar;charset=utf-8' }));
+    var a = document.createElement('a'); a.href = url; a.download = 'focus-tasks-' + CW.iso(locToday()) + '.ics';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    msg.textContent = 'Downloaded ' + n + ' event' + (n > 1 ? 's' : '') + ' with a reminder ' + alarmMin() + ' min before. Open the file in your calendar app to add them.';
+  };
+  $('copyCal').onclick = function () {
+    var txt = CP.calText(tasks, { alarmMin: alarmMin() }), ta = $('calText'), msg = $('exportMsg');
+    ta.value = txt; ta.style.display = 'block';
+    var done = function () { msg.textContent = 'Copied. Paste it wherever you send it; nothing was sent from here.'; };
+    var manual = function () { ta.focus(); ta.select(); msg.textContent = 'Select the text above and copy it.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, manual); else manual();
+  };
+  window.addEventListener('storage', function (e) { if (e.key === TKEY) { tasks = loadTasks(); renderTasks(); } });
+  function refresh() {
+    compute(); updateDom(); renderClear(model); updatePick();
+    // re-render tasks only when the day, place or open windows change, so typing in a note is never interrupted
+    if (viewKey() !== taskView) renderTasks();
+  }
+
+  // ---------- controls ----------
+  function setDate(o) { state.sel = o; state.pickT = null; state.todayMode = CW.iso(o) === CW.iso(locToday()); refresh(); }
+  $('prev').onclick = function () { setDate(CW.addDays(state.sel, -1)); };
+  $('next').onclick = function () { setDate(CW.addDays(state.sel, 1)); };
+  $('today').onclick = function () { state.todayMode = true; state.pickT = null; refresh(); };
+  $('date').onchange = function () { if (this.value) setDate(CW.parseISO(this.value)); };
+  $('theme').onclick = function () {
+    var r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark'; refresh();
+  };
+  $('geo').onclick = function () {
+    var msg = $('geoMsg');
+    if (!navigator.geolocation) { msg.textContent = 'Location is not available in this browser.'; return; }
+    msg.textContent = 'Asking for your location…';
+    navigator.geolocation.getCurrentPosition(function (p) {
+      loc = { name: 'Your location', lat: p.coords.latitude, lon: p.coords.longitude,
+        tz: function (o) { return -new Date(o.y, o.m - 1, o.d, 12).getTimezoneOffset(); } };
+      msg.textContent = 'Using your location for this visit only (not stored or sent anywhere). Times use your device time zone.';
+      refresh();
+    }, function (e) { msg.textContent = 'Could not get your location (' + (e.message || 'permission denied') + '). Still using Pipli.'; },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+  };
+  $('pipli').onclick = function () { loc = PIPLI; $('geoMsg').textContent = ''; refresh(); };
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refresh);
+
+  // keyboard: Left/Right = previous/next day, T = today (ignored while typing in a field)
+  document.addEventListener('keydown', function (e) {
+    var t = e.target, tag = t && t.tagName;
+    if (e.altKey || e.ctrlKey || e.metaKey || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+    if (e.key === 'ArrowLeft') { setDate(CW.addDays(state.sel, -1)); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { setDate(CW.addDays(state.sel, 1)); e.preventDefault(); }
+    else if (e.key === 't' || e.key === 'T') { state.todayMode = true; state.pickT = null; refresh(); }
+    else if (e.key === 'Escape' && state.pickT != null) { state.pickT = null; refresh(); }
+  });
+
+  // ---------- interactive wheel (AI-ready preview): tap, drag, hover, keyboard, table rows ----------
+  var tip = $('tip'), dragging = false, pending = null, rafId = 0;
+  // The moment on the drawn wheel under a point, or null outside the ring. Same mapping as ang(): midnight at the bottom, clockwise.
+  function timeAtPoint(x, y) {
+    if (!model || !model.ok) return null;
+    var g = geometry(), dx = x - g.c, dy = y - g.c, r = Math.sqrt(dx * dx + dy * dy);
+    if (r < g.Rin || r > g.Rout + 4) return null;
+    var f = (((Math.atan2(dy, dx) - Math.PI / 2) / (2 * Math.PI)) % 1 + 1) % 1;
+    var W = model.wheelDay, t = W.sunrise + (((f - frac(W.sunrise)) % 1 + 1) % 1) * 86400000;
+    return Math.min(t, W.nextSunrise - 1000);
+  }
+  function inCentre(x, y) { var g = geometry(), dx = x - g.c, dy = y - g.c; return dx * dx + dy * dy < g.Rin * g.Rin; }
+  function pick(t) {
+    pending = t;
+    if (!rafId) rafId = requestAnimationFrame(function () { rafId = 0; state.pickT = pending; refresh(); });
+  }
+  function unpick() { if (state.pickT == null) return; state.pickT = null; refresh(); }
+  function updatePick() {
+    var on = !!(model && model.ok && model.picked);
+    $('pickBar').classList.toggle('on', on);
+    if (!on) return;
+    var t = model.target, rel = '';
+    if (Math.abs(t - state.now) < 60000) rel = ' · now';
+    else if (model.isToday || Math.abs(t - state.now) < 86400000) rel = ' · ' + (t > state.now ? 'in ' + dur(t - state.now) : dur(state.now - t) + ' ago');
+    $('pickTxt').textContent = 'Looking at ' + fmtD.format(t) + ', ' + fmtT0.format(t) + rel;
+  }
+  function pt(e) { var r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  function hideTip() { tip.style.display = 'none'; }
+  function showTip(p, t) {
+    var hitT = t == null ? null : CW.slotAt(t, model.Dp, model.D);
+    if (!hitT) { hideTip(); return; }
+    var s = hitT.slot, w = CW.warnings(s);
+    tip.innerHTML = '<b>' + s.name + '</b> · ' + QTEXT[s.quality] + ' · ' + (s.part === 'day' ? 'D' : 'N') + s.n + '<br>' + fmtT.format(s.start) + ' – ' + fmtT.format(s.end) +
+      (w.length ? '<br><span style="color:var(--warn)">⚠ ' + w.join(', ') + '</span>' : (CW.GOOD_CHOG.indexOf(s.name) >= 0 ? '<br>✓ clean' : ''));
+    tip.style.display = 'block';
+    var x = canvas.offsetLeft + p.x + 14, y = canvas.offsetTop + p.y + 14;
+    if (x + tip.offsetWidth > wrap.clientWidth) x = canvas.offsetLeft + p.x - tip.offsetWidth - 10;
+    tip.style.left = Math.max(0, x) + 'px'; tip.style.top = y + 'px';
+  }
+  canvas.addEventListener('pointerdown', function (e) {
+    var p = pt(e), t = timeAtPoint(p.x, p.y);
+    if (t == null) { if (inCentre(p.x, p.y)) unpick(); return; }
+    dragging = true; hideTip();
+    try { canvas.setPointerCapture(e.pointerId); } catch (x) {}
+    pick(t); e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!model || !model.ok) return;
+    var p = pt(e), t = timeAtPoint(p.x, p.y);
+    if (dragging) { if (t != null) pick(t); return; }
+    if (e.pointerType === 'mouse') showTip(p, t);
+  });
+  canvas.addEventListener('pointerup', function () { dragging = false; });
+  canvas.addEventListener('pointercancel', function () { dragging = false; });
+  canvas.addEventListener('pointerleave', hideTip);
+  canvas.addEventListener('keydown', function (e) {
+    if (!model || !model.ok) return;
+    var k = e.key;
+    if (k === 'ArrowUp' || k === 'ArrowDown') {
+      var list = model.wheelDay.slots, cur = model.hit ? list.indexOf(model.hit.slot) : -1;
+      var i = Math.max(0, Math.min(list.length - 1, cur < 0 ? 0 : cur + (k === 'ArrowDown' ? 1 : -1)));
+      state.pickT = Math.ceil(list[i].start); refresh(); e.preventDefault();
+    } else if (k === 'Escape' || k === 'Enter') { unpick(); e.preventDefault(); e.stopPropagation(); }
+  });
+  $('backNow').onclick = function () { state.todayMode = true; state.pickT = null; refresh(); };
+  $('tbl').addEventListener('click', function (e) {
+    var tr = e.target.closest && e.target.closest('tr[data-t]');
+    if (!tr) return;
+    state.pickT = +tr.getAttribute('data-t'); refresh();
+    if (wrap.scrollIntoView) wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  // ---------- start ----------
+  var pLat = paramNum(params.get('lat'), 90), pLon = paramNum(params.get('lon'), 180);
+  if (pLat !== null && pLon !== null && CW.computeDay(locToday(), { lat: pLat, lon: pLon, tz: PIPLI.tz })) {
+    loc = { name: 'Place from the link', lat: pLat, lon: pLon, tz: PIPLI.tz, tzLabel: 'IST' };
+  }
+  var pDate = paramDate(params.get('date'));
+  if (pDate) { state.sel = pDate; state.todayMode = CW.iso(pDate) === CW.iso(locToday()); }
+  setBadge(); mountElements();
+  if (HIC) canvas.onpaint = paint;
+  window.addEventListener('resize', function () { resize(); updateDom(); });
+  resize(); refresh();
+  setInterval(refresh, 30000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+  // expose for testing
+  window.__cw = { model: function () { return model; }, plan: function () { return plan; }, tasks: function () { return tasks; }, mode: function () { return HIC ? 'html-in-canvas' : 'fallback'; },
+    // for the AI tools panel and show_on_wheel: the place the wheel shows, and a way to point the wheel at a Vedic date and moment
+    place: function () { return { name: loc.name, lat: loc.lat, lon: loc.lon, tzMin: loc.tz(state.sel || locToday()), isPipli: loc === PIPLI }; },
+    show: function (dateIso, t) {
+      var o = dateIso ? paramDate(dateIso) : null;
+      if (dateIso && !o) throw new Error('date must be YYYY-MM-DD.');
+      if (o) { state.sel = o; state.todayMode = CW.iso(o) === CW.iso(locToday()); }
+      state.pickT = t == null ? null : t; refresh();
+      if (wrap.scrollIntoView) wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return model;
+    } };
+})();
+</script>
+<script>
+/* WEBMCP:START — exposes the wheel's Vedic choghadiya engine as WebMCP tools for AI agents.
+   Three tools are read-only; show_on_wheel only moves the visible wheel. No network calls, never touches focus tasks or
+   localStorage, never asks for location. The "Ask the wheel" panel runs the same tools for a person.
+   Follows the WebMCP Community Group draft of 24 Nov 2026 (document.modelContext.registerTool)
+   and falls back to navigator.modelContext (Chrome 149 origin trial / explainer). Browsers without
+   WebMCP skip this block and the page behaves exactly as before. */
+(function (CW, CP) {
+  'use strict';
+  if (!CW) return;
+  var mc = (typeof document !== 'undefined' && document.modelContext) ||
+           (typeof navigator !== 'undefined' && navigator.modelContext);
+  if (mc && typeof mc.registerTool !== 'function') mc = null;
+
+  var PIPLI = { name: 'Pipli, Kurukshetra', lat: 29.9775, lon: 76.8928 };
+  var MEANING = { Amrit: 'nectar', Shubh: 'auspicious', Labh: 'gain', Chal: 'moving', Udveg: 'anxiety', Kaal: 'loss', Rog: 'illness' };
+  var MIN = 60000;
+
+  // ---- inputs ----
+  function place(a) {
+    a = a || {};
+    var hasLat = typeof a.lat === 'number', hasLon = typeof a.lon === 'number';
+    if (hasLat !== hasLon) throw new Error('Give both lat and lon, or neither (defaults to Pipli, Kurukshetra).');
+    if (hasLat && (Math.abs(a.lat) > 90 || Math.abs(a.lon) > 180)) throw new Error('lat must be within ±90 and lon within ±180.');
+    var tz = typeof a.tzOffsetMinutes === 'number' ? a.tzOffsetMinutes : 330;
+    if (Math.abs(tz) > 14 * 60) throw new Error('tzOffsetMinutes must be within ±840.');
+    return { name: hasLat ? 'Given coordinates' : PIPLI.name, lat: hasLat ? a.lat : PIPLI.lat, lon: hasLat ? a.lon : PIPLI.lon,
+      tzMin: tz, tz: function () { return tz; } };
+  }
+  function instant(s) {
+    if (s == null || s === '') return Date.now();
+    var t = Date.parse(s);
+    if (isNaN(t)) throw new Error('at must be an ISO 8601 date-time, for example 2026-11-26T14:00:00+05:30.');
+    return t;
+  }
+  function dateArg(s, loc, t) {
+    if (s == null || s === '') return vedicDate(t, loc);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || CW.iso(CW.addDays(CW.parseISO(s), 0)) !== s) throw new Error('date must be a real date, YYYY-MM-DD.');
+    return CW.parseISO(s);
+  }
+  // civil date at the place, then step back one day before sunrise (a Vedic day runs sunrise to sunrise)
+  function vedicDate(t, loc) {
+    var c = new Date(t + loc.tzMin * MIN), o = { y: c.getUTCFullYear(), m: c.getUTCMonth() + 1, d: c.getUTCDate() };
+    var D = CW.computeDay(o, loc);
+    return D && t < D.sunrise ? CW.addDays(o, -1) : o;
+  }
+
+  // ---- output helpers (times in the place's offset, ISO 8601 to the minute, as the wheel shows them) ----
+  function iso(t, loc) {
+    var off = loc.tzMin, s = off < 0 ? '-' : '+', a = Math.abs(off);
+    return new Date(Math.round(t / MIN) * MIN + off * MIN).toISOString().slice(0, 16) + ':00' +
+      s + ('0' + Math.floor(a / 60)).slice(-2) + ':' + ('0' + a % 60).slice(-2);
+  }
+  function slotOut(s, loc) {
+    var ov = CW.warnings(s);
+    return { part: s.part, n: s.n, name: s.name, meaning: MEANING[s.name], quality: s.quality,
+      start: iso(s.start, loc), end: iso(s.end, loc), overlays: ov,
+      isClean: CW.GOOD_CHOG.indexOf(s.name) >= 0 && ov.length === 0 && s.end - s.start >= 20 * MIN };
+  }
+  function cleanOut(c, loc) {
+    return { name: c.name, meaning: MEANING[c.name], part: c.part, n: c.n, start: iso(c.start, loc), end: iso(c.end, loc),
+      minutes: Math.round((c.end - c.start) / MIN), trimmed: !!c.trimmed };
+  }
+  function placeOut(loc) { return { name: loc.name, lat: loc.lat, lon: loc.lon, utcOffsetMinutes: loc.tzMin }; }
+  function days(o, loc) { return [CW.computeDay(CW.addDays(o, -1), loc), CW.computeDay(o, loc), CW.computeDay(CW.addDays(o, 1), loc)]; }
+  function noSun(o) { return new Error('No sunrise or sunset at this place on ' + CW.iso(o) + ', so choghadiya is not defined.'); }
+  function reply(summary, data) { return { content: [{ type: 'text', text: summary + '\n' + JSON.stringify(data) }], structuredContent: data }; }
+
+  var LOC_PROPS = {
+    lat: { type: 'number', minimum: -90, maximum: 90, description: 'Latitude in decimal degrees. Omit with lon to use Pipli, Kurukshetra (29.9775 N).' },
+    lon: { type: 'number', minimum: -180, maximum: 180, description: 'Longitude in decimal degrees. Omit with lat to use Pipli, Kurukshetra (76.8928 E).' },
+    tzOffsetMinutes: { type: 'number', description: 'UTC offset of the place in minutes, default 330 (IST). Output times use this offset.' }
+  };
+  function props(extra) { var p = {}, k; for (k in LOC_PROPS) p[k] = LOC_PROPS[k]; for (k in extra) p[k] = extra[k]; return p; }
+  var DOMAIN = 'Vedic Panchang muhurat timekeeping: choghadiya are the 8 day and 8 night divisions between sunrise, sunset and the next sunrise, ' +
+    'each ruled by a planet (Amrit, Shubh, Labh good; Chal neutral; Udveg, Kaal, Rog avoid). Overlays Rahu Kaal, Yamaganda, Gulika, ' +
+    'Vaar Vela, Kaal Vela and Kaal Ratri spoil a slot. A Vedic day runs sunrise to sunrise. Sunrise and sunset are computed in the browser ' +
+    '(NOAA/Meeus, apparent upper limb with refraction, Drik Panchang convention). Default place is Pipli, Kurukshetra, India, in IST.';
+
+  var tools = [
+    {
+      name: 'get_current_choghadiya',
+      title: 'Current choghadiya (Vedic muhurat) right now',
+      description: 'Returns the choghadiya active at a moment (default: now): its name, meaning, quality, start, end, minutes left, ' +
+        'any overlay (Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela, Kaal Ratri), whether it is clean, and the next clean ' +
+        'Amrit/Shubh/Labh window. ' + DOMAIN,
+      inputSchema: { type: 'object', additionalProperties: false, properties: props({
+        at: { type: 'string', format: 'date-time', description: 'ISO 8601 moment to check. Omit for the current time.' } }) },
+      run: function (a) {
+        var loc = place(a), t = instant(a && a.at), o = vedicDate(t, loc), d = days(o, loc);
+        if (!d[1]) throw noSun(o);
+        var hit = CW.slotAt(t, d[0], d[1]);
+        if (!hit) throw new Error('No choghadiya covers that moment at this place.');
+        var s = hit.slot, clean = CW.cleanSlots(d), next = null;
+        for (var i = 0; i < clean.length; i++) if (clean[i].end > t + MIN) { next = clean[i]; break; }
+        var out = { place: placeOut(loc), at: iso(t, loc), vedicDate: hit.day.date, weekday: hit.day.weekdayName, vaar: hit.day.vaar,
+          current: slotOut(s, loc), minutesLeft: Math.max(0, Math.round((s.end - t) / MIN)),
+          nextCleanSlot: next ? { name: next.name, part: next.part, start: iso(Math.max(next.start, t), loc), end: iso(next.end, loc),
+            inProgress: next.start <= t } : null };
+        var c = out.current;
+        return reply('Now ' + c.name + ' (' + c.meaning + ', ' + c.quality + ') ' + c.part + ' choghadiya ' + c.n + ' until ' + c.end.slice(11, 16) +
+          (c.overlays.length ? ', spoiled by ' + c.overlays.join(', ') : c.isClean ? ', clean' : '') + '.', out);
+      }
+    },
+    {
+      name: 'get_choghadiya_for_date',
+      title: 'All 16 choghadiya slots for a Vedic day',
+      description: 'Returns sunrise, sunset, next sunrise, all 8 day and 8 night choghadiya for a date with their overlays, and the ' +
+        'Rahu Kaal, Yamaganda, Gulika, Vaar Vela, Kaal Vela and Kaal Ratri windows. Set onlyClean to get just the clean ' +
+        'Amrit/Shubh/Labh windows (at least minMinutes long, partial overlaps trimmed). ' + DOMAIN,
+      inputSchema: { type: 'object', additionalProperties: false, properties: props({
+        date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Vedic date YYYY-MM-DD (sunrise to next sunrise). Omit for the current Vedic day.' },
+        onlyClean: { type: 'boolean', description: 'Return only clean windows. Default false.' },
+        minMinutes: { type: 'number', minimum: 1, maximum: 240, description: 'Shortest clean window to list, default 20.' } }) },
+      run: function (a) {
+        a = a || {};
+        var loc = place(a), o = dateArg(a.date, loc, Date.now()), d = days(o, loc), D = d[1];
+        if (!D) throw noSun(o);
+        var min = typeof a.minMinutes === 'number' ? a.minMinutes : 20;
+        var clean = CP ? CP.plan(d, D.slots, min).clean.map(function (c) { return cleanOut(c, loc); })
+                       : CW.cleanSlots([D], min).map(function (c) { return cleanOut(c, loc); });
+        var base = { place: placeOut(loc), vedicDate: D.date, weekday: D.weekdayName, vaar: D.vaar,
+          sunrise: iso(D.sunrise, loc), sunset: iso(D.sunset, loc), nextSunrise: iso(D.nextSunrise, loc), cleanWindows: clean };
+        var summary = D.date + ' ' + D.weekdayName + ' (' + D.vaar + '): ' + clean.length + ' clean window' + (clean.length === 1 ? '' : 's') +
+          (clean.length ? ' — ' + clean.map(function (c) { return c.name + ' ' + c.start.slice(11, 16) + '-' + c.end.slice(11, 16); }).join(', ') : '') + '.';
+        if (a.onlyClean) return reply(summary, base);
+        var w = function (x) { return { start: iso(x.start, loc), end: iso(x.end, loc) }; };
+        base.day = D.slots.slice(0, 8).map(function (s) { return slotOut(s, loc); });
+        base.night = D.slots.slice(8).map(function (s) { return slotOut(s, loc); });
+        base.overlays = { rahuKaal: w(D.rahu), yamaganda: w(D.yama), gulika: w(D.guli),
+          vaarVela: D.vaarVela.map(w), kaalVela: D.kaalVela.map(w), kaalRatri: D.kaalRatri.map(w) };
+        return reply(summary, base);
+      }
+    },
+    {
+      name: 'find_next_clean_muhurat',
+      title: 'Next clean Amrit, Shubh or Labh window',
+      description: 'Finds the next clean choghadiya window (Amrit, Shubh or Labh untouched by Rahu Kaal, Yamaganda, Gulika, Vaar Vela, ' +
+        'Kaal Vela or Kaal Ratri) after a moment, looking up to 7 Vedic days ahead. Optionally require a minimum length or a specific ' +
+        'choghadiya. ' + DOMAIN,
+      inputSchema: { type: 'object', additionalProperties: false, properties: props({
+        after: { type: 'string', format: 'date-time', description: 'ISO 8601 moment to search from. Omit for now.' },
+        minMinutes: { type: 'number', minimum: 1, maximum: 240, description: 'Shortest acceptable window, default 20.' },
+        names: { type: 'array', items: { type: 'string', enum: ['Amrit', 'Shubh', 'Labh'] }, description: 'Only these choghadiya. Default all three.' },
+        count: { type: 'integer', minimum: 1, maximum: 10, description: 'How many windows to return, default 1.' } }) },
+      run: function (a) {
+        a = a || {};
+        var loc = place(a), t = instant(a.after), o = vedicDate(t, loc), min = typeof a.minMinutes === 'number' ? a.minMinutes : 20;
+        var want = a.names && a.names.length ? a.names : CW.GOOD_CHOG, n = a.count || 1, found = [];
+        for (var k = 0; k < 7 && found.length < n; k++) {
+          var ok = CW.addDays(o, k), d = days(ok, loc);
+          if (!d[1]) continue;
+          CW.cleanSlots(d, 1).forEach(function (c) {
+            if (c.date !== CW.iso(ok) || want.indexOf(c.name) < 0) return;
+            var s = Math.max(c.start, t);
+            if (c.end - s >= min * MIN && found.length < n && !found.some(function (f) { return f.s === s; }))
+              found.push({ s: s, c: { name: c.name, meaning: MEANING[c.name], part: c.part, vedicDate: c.date,
+                start: iso(s, loc), end: iso(c.end, loc), minutes: Math.round((c.end - s) / MIN), inProgress: c.start <= t } });
+          });
+        }
+        var list = found.map(function (f) { return f.c; }), out = { place: placeOut(loc), after: iso(t, loc), windows: list };
+        return reply(list.length ? 'Next clean window: ' + list[0].name + ' ' + list[0].start + ' to ' + list[0].end.slice(11, 16) +
+          (list[0].inProgress ? ' (already running)' : '') + '.' : 'No clean window found in the next 7 Vedic days.', out);
+      }
+    },
+    {
+      name: 'show_on_wheel',
+      title: 'Point the visible wheel at a Vedic date and moment',
+      description: 'Moves the choghadiya wheel on this page to a date and moment, so the person looking at the page sees the slot you are ' +
+        'talking about (the needle, centre card and table update). Changes only what the page shows; it saves nothing and uses the place ' +
+        'the page is showing. Omit both inputs to go back to now. ' + DOMAIN,
+      inputSchema: { type: 'object', additionalProperties: false, properties: {
+        date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Vedic date YYYY-MM-DD to show. Omit to use the date of "at", or today.' },
+        at: { type: 'string', format: 'date-time', description: 'ISO 8601 moment to point the needle at. Omit to show the same clock time on that date, or now.' } } },
+      readOnly: false,
+      run: function (a) {
+        a = a || {};
+        var ui = typeof window !== 'undefined' && window.__cw;
+        if (!ui || typeof ui.show !== 'function') throw new Error('The wheel on this page is not ready.');
+        var pl = ui.place(), loc = place(pl.isPipli ? { tzOffsetMinutes: pl.tzMin } : { lat: pl.lat, lon: pl.lon, tzOffsetMinutes: pl.tzMin });
+        loc.name = pl.name;
+        var t = a.at ? instant(a.at) : null, date = a.date || null;
+        if (date) dateArg(date, loc, Date.now());
+        if (t != null && !date) date = CW.iso(vedicDate(t, loc));
+        if (t != null && date) {
+          var D = CW.computeDay(CW.parseISO(date), loc);
+          if (!D || t < D.sunrise || t >= D.nextSunrise) throw new Error('"at" is outside Vedic day ' + date + ' (sunrise to next sunrise) at this place.');
+        }
+        var m = ui.show(date, t), s = m && m.ok && m.hit ? m.hit.slot : null;
+        var out = { place: placeOut(loc), shown: s ? { vedicDate: m.wheelDay.date, at: iso(m.target, loc), slot: slotOut(s, loc) } : null };
+        return reply(s ? 'The wheel now shows ' + s.name + ' (' + s.part + ' ' + s.n + ') at ' + iso(m.target, loc).slice(11, 16) + ' on ' + m.wheelDay.date + '.' :
+          'The wheel moved, but no slot covers that moment.', out);
+      }
+    }
+  ];
+
+  function safeRun(tl, input) {
+    try { return Promise.resolve(tl.run(input || {})); }
+    catch (e) { return Promise.resolve({ isError: true, content: [{ type: 'text', text: 'Error: ' + e.message }] }); }
+  }
+  var registered = [];
+  if (mc) tools.forEach(function (tl) {
+    var def = { name: tl.name, title: tl.title, description: tl.description, inputSchema: tl.inputSchema,
+      annotations: { readOnlyHint: tl.readOnly !== false },
+      execute: function (input) { return safeRun(tl, input); } };
+    try {
+      var r = mc.registerTool(def); registered.push(tl.name);
+      if (r && typeof r.catch === 'function') r.catch(function (e) {
+        registered = registered.filter(function (x) { return x !== tl.name; }); setStatus();
+        if (window.console) console.warn('WebMCP tool not registered:', tl.name, e);
+      });
+    } catch (e) { if (window.console) console.warn('WebMCP tool not registered:', tl.name, e); }
+  });
+  // for testing in the console: await __cwTools.get_current_choghadiya({})
+  window.__cwTools = {}; tools.forEach(function (tl) { window.__cwTools[tl.name] = function (a) { return safeRun(tl, a); }; });
+  window.__cwWebMCP = { available: !!mc, registered: function () { return registered.slice(); } };
+
+  // ---- "Ask the wheel" panel: runs the read-only tools with the date, moment and place the wheel shows ----
+  function $(id) { return typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null; }
+  function setStatus() {
+    var el = $('aiStatus'); if (!el) return;
+    el.textContent = mc ? 'WebMCP is on in this browser: ' + registered.length + ' tools are registered for AI agents (' + registered.join(', ') + ').' :
+      'This browser has no WebMCP yet, so AI agents cannot call these tools here. You can still run them below to see what an agent would get.';
+  }
+  setStatus();
+  var sec = $('aiSec');
+  if (sec && sec.addEventListener) sec.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-tool]');
+    if (!b) return;
+    var name = b.getAttribute('data-tool'), args = {};
+    try { args = JSON.parse(b.getAttribute('data-args') || '{}'); } catch (x) {}
+    var ui = window.__cw, m = ui && ui.model(), pl = ui && ui.place();
+    if (pl && !pl.isPipli) { args.lat = pl.lat; args.lon = pl.lon; args.tzOffsetMinutes = pl.tzMin; }
+    if (m && m.ok) {
+      var loc = place({ tzOffsetMinutes: pl ? pl.tzMin : 330 }), at = iso(m.target, loc);
+      if (name === 'get_current_choghadiya') args.at = at;
+      if (name === 'find_next_clean_muhurat') args.after = at;
+      if (name === 'get_choghadiya_for_date') args.date = m.wheelDay.date;
+    }
+    window.__cwTools[name](args).then(function (r) {
+      var text = r.content && r.content[0] ? r.content[0].text : '', nl = text.indexOf('\n');
+      $('aiSummary').textContent = nl < 0 ? text : text.slice(0, nl);
+      var out = $('aiOut');
+      out.textContent = name + '(' + JSON.stringify(args) + ')\n\n' + (r.structuredContent ? JSON.stringify(r.structuredContent, null, 2) : text);
+      out.hidden = false;
+    });
+  });
+})(typeof CW !== 'undefined' ? CW : null, typeof CP !== 'undefined' ? CP : null);
+/* WEBMCP:END */
+</script>
+</body>
+</html>
